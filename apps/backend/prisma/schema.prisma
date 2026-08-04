@@ -27,8 +27,6 @@ model User {
 
   notifications  Notification[]
 
-  activities     Activity[]
-
   friendshipsSent     Friendship[] @relation("FriendshipSender")
   friendshipsReceived Friendship[] @relation("FriendshipReceiver")
 }
@@ -159,18 +157,4 @@ model Friendship {
   receiver User @relation("FriendshipReceiver", fields: [receiverId], references: [id])
 
   @@unique([senderId, receiverId])
-}
-
-model Activity {
-  id          Int @id @default(autoincrement())
-
-  type        String
-
-  description String
-
-  createdAt   DateTime @default(now())
-
-  userId      Int
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
