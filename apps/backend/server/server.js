@@ -8,6 +8,8 @@ import errorHandler from "./middleware/errorHandler.js";
 import commentRoutes from "./routes/comments.js";
 import dashboardRoutes from "./routes/dashboard.js";
 import statsRoutes from "./routes/stats.js";
+import paymentRoutes from "./routes/payments.js";
+import expenseSplitRoutes from "./routes/expenseSplits.js";
 
 dotenv.config();
 
@@ -17,12 +19,15 @@ const port = Number(process.env.PORT) || 3001;
 app.use(cors());
 app.use(express.json());
 
+app.use("/api", apiRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/groups", groupRoutes);
 app.use(errorHandler);
 app.use("/api/comments", commentRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/stats", statsRoutes);
+app.use("/api/payments", paymentRoutes);
+app.use("/api/expense-splits", expenseSplitRoutes);
 
 app.use((err, _req, res, _next) => {
   console.error(err);
