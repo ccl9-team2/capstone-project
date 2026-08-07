@@ -1,4 +1,10 @@
 import prisma from "../db/prisma.js";
+import { success, failure } from "../utils/apiResponse.js";
+import { requireFields } from "../utils/validators.js";
+import {
+  calculateEqualSplit,
+  validateCustomSplits
+} from "../utils/splitCalculator.js";
 
 /**
  * GET /api/expenses
@@ -10,8 +16,8 @@ export async function getExpenses(req, res, next) {
         createdBy: {
           select: {
             id: true,
-            name: true,
-          },
+            name: true
+          }
         },
         group: true,
         splits: {
@@ -19,28 +25,56 @@ export async function getExpenses(req, res, next) {
             user: {
               select: {
                 id: true,
-                name: true,
-              },
-            },
-          },
+                name: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: {
+        expenseDate: "desc"
+      }
+    });
+
+    success(res, expenses);
+
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * GET /api/expenses/:id
+ */
+export async function getExpenseById(req, res, next) {
+  try {
+
+    const id = Number(req.params.id);
+
+    const expense = await prisma.expense.findUnique({
+      where: { id },
+      include: {
+        createdBy: true,
+        group: true,
+        splits: {
+          include: {
+            user: true
+          }
         },
         comments: {
           include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-          },
-        },
-      },
-      orderBy: {
-        expenseDate: "desc",
-      },
+            user: true
+          }
+        }
+      }
     });
 
-    res.json(expenses);
+    if (!expense) {
+      return failure(res, "Expense not found.", 404);
+    }
+
+    success(res, expense);
+
   } catch (error) {
     next(error);
   }
@@ -51,114 +85,204 @@ export async function getExpenses(req, res, next) {
  */
 export async function createExpense(req, res, next) {
   try {
-    const { description, amount, groupId, createdById, splits } = req.body;
 
-    // Validate required fields
-    if (!description || !amount || !groupId || !createdById) {
-      return res.status(400).json({
-        message: "Description, amount, groupId, and createdById are required.",
-      });
-    }
+    requireFields(req.body, [
+      "description",
+      "amount",
+      "groupId",
+      "createdById"
+    ]);
+
+    const {
+      description,
+      amount,
+      groupId,
+      createdById,
+      splits
+    } = req.body;
 
     const expense = await prisma.$transaction(async (tx) => {
-      // Make sure the group exists
-      const group = await tx.group.findUnique({
-        where: {
-          id: Number(groupId),
-        },
-      });
 
-      if (!group) {
-        throw new Error("Group not found.");
-      }
-
-      // Create the expense
       const newExpense = await tx.expense.create({
         data: {
           description,
           amount: Number(amount),
           groupId: Number(groupId),
-          createdById: Number(createdById),
-        },
+          createdById: Number(createdById)
+        }
       });
 
-      // -------------------------
-      // CUSTOM SPLITS
-      // -------------------------
-
       if (splits && splits.length > 0) {
-        const total = splits.reduce(
-          (sum, split) => sum + Number(split.amount),
-          0,
-        );
 
-        if (Math.abs(total - Number(amount)) > 0.01) {
-          throw new Error("Split amounts must equal the total expense.");
+        if (!validateCustomSplits(amount, splits)) {
+          throw new Error(
+            "Split amounts must equal total expense."
+          );
         }
 
         await tx.expenseSplit.createMany({
-          data: splits.map((split) => ({
+          data: splits.map(split => ({
             expenseId: newExpense.id,
-            userId: Number(split.userId),
-            amountOwed: Number(split.amount),
-            settled: false,
-          })),
+            userId: split.userId,
+            amountOwed: split.amount,
+            settled: false
+          }))
         });
+
       } else {
-        // -------------------------
-        // EQUAL SPLIT
-        // -------------------------
 
         const members = await tx.groupMember.findMany({
           where: {
-            groupId: Number(groupId),
-          },
+            groupId: Number(groupId)
+          }
         });
 
-        if (members.length === 0) {
-          throw new Error("This group has no members.");
-        }
-
-        const share = Number((Number(amount) / members.length).toFixed(2));
+        const share = calculateEqualSplit(
+          Number(amount),
+          members.length
+        );
 
         await tx.expenseSplit.createMany({
-          data: members.map((member) => ({
+          data: members.map(member => ({
             expenseId: newExpense.id,
             userId: member.userId,
             amountOwed: share,
-            settled: false,
-          })),
+            settled: false
+          }))
+        });
+
+      }
+
+      return tx.expense.findUnique({
+        where: {
+          id: newExpense.id
+        },
+        include: {
+          splits: {
+            include: {
+              user: true
+            }
+          },
+          createdBy: true,
+          group: true
+        }
+      });
+
+    });
+
+    success(res, expense, 201);
+
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * PUT /api/expenses/:id
+ */
+export async function updateExpense(req, res, next) {
+  try {
+
+    const id = Number(req.params.id);
+
+    const existing = await prisma.expense.findUnique({
+      where: { id }
+    });
+
+    if (!existing) {
+      return failure(res, "Expense not found.", 404);
+    }
+
+    requireFields(req.body, [
+      "description",
+      "amount"
+    ]);
+
+    const updatedExpense = await prisma.$transaction(async (tx) => {
+
+      const updated = await tx.expense.update({
+        where: { id },
+        data: {
+          description: req.body.description,
+          amount: Number(req.body.amount)
+        }
+      });
+
+      const splits = await tx.expenseSplit.findMany({
+        where: {
+          expenseId: id
+        }
+      });
+
+      const share = calculateEqualSplit(
+        Number(req.body.amount),
+        splits.length
+      );
+
+      for (const split of splits) {
+        await tx.expenseSplit.update({
+          where: {
+            id: split.id
+          },
+          data: {
+            amountOwed: share
+          }
         });
       }
 
-      // Return the complete expense
-      return await tx.expense.findUnique({
-        where: {
-          id: newExpense.id,
-        },
-        include: {
-          createdBy: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-          group: true,
-          splits: {
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  name: true,
-                },
-              },
-            },
-          },
-        },
-      });
+      return updated;
+
     });
 
-    res.status(201).json(expense);
+    success(res, updatedExpense);
+
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * DELETE /api/expenses/:id
+ */
+export async function deleteExpense(req, res, next) {
+  try {
+
+    const id = Number(req.params.id);
+
+    const existing = await prisma.expense.findUnique({
+      where: { id }
+    });
+
+    if (!existing) {
+      return failure(res, "Expense not found.", 404);
+    }
+
+    await prisma.$transaction(async (tx) => {
+
+      await tx.expenseSplit.deleteMany({
+        where: {
+          expenseId: id
+        }
+      });
+
+      await tx.comment.deleteMany({
+        where: {
+          expenseId: id
+        }
+      });
+
+      await tx.expense.delete({
+        where: {
+          id
+        }
+      });
+
+    });
+
+    success(res, {
+      message: "Expense deleted successfully."
+    });
+
   } catch (error) {
     next(error);
   }

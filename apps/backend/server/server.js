@@ -4,6 +4,7 @@ import express from "express";
 import userRoutes from "./routes/users.js";
 import groupRoutes from "./routes/groups.js";
 import expenseRoutes from "./routes/expenses.js";
+import errorHandler from "./middleware/errorHandler.js";
 
 dotenv.config();
 
@@ -15,7 +16,7 @@ app.use(express.json());
 
 app.use("/api/users", userRoutes);
 app.use("/api/groups", groupRoutes);
-app.use("/api/expenses", expenseRoutes);
+app.use(errorHandler);
 
 app.use((err, _req, res, _next) => {
   console.error(err);
