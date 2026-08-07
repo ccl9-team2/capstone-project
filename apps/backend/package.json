@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node --watch server/server.js",
+    "dev": "prisma generate && node --watch server/server.js",
     "start": "node server/server.js",
     "db:up": "docker compose -f ../../docker-compose.yml up -d postgres",
     "db:down": "docker compose -f ../../docker-compose.yml down",
