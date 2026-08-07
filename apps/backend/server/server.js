@@ -5,6 +5,9 @@ import userRoutes from "./routes/users.js";
 import groupRoutes from "./routes/groups.js";
 import expenseRoutes from "./routes/expenses.js";
 import errorHandler from "./middleware/errorHandler.js";
+import commentRoutes from "./routes/comments.js";
+import dashboardRoutes from "./routes/dashboard.js";
+import statsRoutes from "./routes/stats.js";
 
 dotenv.config();
 
@@ -17,6 +20,9 @@ app.use(express.json());
 app.use("/api/users", userRoutes);
 app.use("/api/groups", groupRoutes);
 app.use(errorHandler);
+app.use("/api/comments", commentRoutes);
+app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/stats", statsRoutes);
 
 app.use((err, _req, res, _next) => {
   console.error(err);
