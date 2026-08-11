@@ -13,6 +13,7 @@ import userRoutes from "./routes/users.js";
 import groupRoutes from "./routes/groups.js";
 import expenseRoutes from "./routes/expenses.js";
 import errorHandler from "./middleware/errorHandler.js";
+import groupBalanceRoutes from "./routes/groupBalances.js";
 
 dotenv.config();
 
@@ -32,7 +33,7 @@ app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/stats", statsRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/expense-splits", expenseSplitRoutes);
-
+app.use("/api/groups", groupBalanceRoutes);
 app.use(errorHandler);
 
 app.listen(port, () => {
