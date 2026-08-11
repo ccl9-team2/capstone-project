@@ -23,3 +23,21 @@ export async function getExpenseById(id) {
 
   return result.data;
 }
+
+export async function createExpense(expenseData) {
+  const response = await fetch(`${API_URL}/expenses`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(expenseData),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "Failed to create expense.");
+  }
+
+  return result.data;
+}
