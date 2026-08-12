@@ -25,6 +25,33 @@ function Navbar() {
         >
           Groups
         </NavLink>
+
+        <NavLink
+          to="/friends"
+          className={({ isActive }) =>
+            isActive ? "nav-link active" : "nav-link"
+          }
+        >
+          Friends
+        </NavLink>
+
+        <NavLink
+          to="/notifications"
+          className={({ isActive }) =>
+            isActive ? "nav-link active" : "nav-link"
+          }
+        >
+          Notifications
+        </NavLink>
+
+        <NavLink
+          to="/join-group"
+          className={({ isActive }) =>
+            isActive ? "nav-link active" : "nav-link"
+          }
+        >
+          Join Group
+        </NavLink>
       </div>
     </nav>
   );

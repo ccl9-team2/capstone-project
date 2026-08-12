@@ -1,43 +1,194 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { getGroupById } from "../api/groups.js";
-import ExpenseForm from "../components/ExpenseForm.jsx";
-import GroupBalances from "../components/GroupBalances.jsx";
+import { QRCodeSVG } from "qrcode.react";
+
+import {
+  getGroupMembers,
+  addGroupMember,
+  removeGroupMember
+} from "../api/groupMembers.js";
+
+import { getGroupQRCode } from "../api/qrCodes.js";
+
+const API_URL = "http://localhost:3001/api";
 
 function GroupDetails() {
   const { id } = useParams();
 
   const [group, setGroup] = useState(null);
-  const [showExpenseForm, setShowExpenseForm] = useState(false);
+  const [members, setMembers] = useState([]);
+  const [users, setUsers] = useState([]);
+
+  const [selectedUserId, setSelectedUserId] =
+    useState("");
 
   const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
   const [error, setError] = useState("");
 
+  // QR code state
+  const [qrCode, setQrCode] = useState("");
+  const [showQRCode, setShowQRCode] =
+    useState(false);
+  const [qrLoading, setQrLoading] =
+    useState(false);
+
   async function loadGroup() {
+    const response = await fetch(
+      `${API_URL}/groups/${id}`
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        result.message ||
+          "Failed to load group."
+      );
+    }
+
+    setGroup(result.data);
+  }
+
+  async function loadMembers() {
+    const data = await getGroupMembers(id);
+
+    setMembers(data);
+  }
+
+  async function loadUsers() {
+    const response = await fetch(
+      `${API_URL}/users`
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        result.message ||
+          "Failed to load users."
+      );
+    }
+
+    setUsers(result.data);
+  }
+
+  async function loadPage() {
     try {
       setLoading(true);
+      setError("");
 
-      const data = await getGroupById(id);
-
-      setGroup(data);
+      await Promise.all([
+        loadGroup(),
+        loadMembers(),
+        loadUsers()
+      ]);
     } catch (err) {
       console.error(err);
-      setError("Unable to load this group.");
+
+      setError(
+        err.message ||
+          "Unable to load group information."
+      );
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    loadGroup();
+    loadPage();
   }, [id]);
 
-  function handleExpenseCreated() {
-    setShowExpenseForm(false);
+  async function handleAddMember(event) {
+    event.preventDefault();
 
-    // Reload the group so the new expense
-    // immediately appears on the page.
-    loadGroup();
+    if (!selectedUserId) {
+      setError("Please select a user.");
+      return;
+    }
+
+    try {
+      setAdding(true);
+      setError("");
+
+      await addGroupMember(
+        id,
+        Number(selectedUserId)
+      );
+
+      setSelectedUserId("");
+
+      await loadMembers();
+    } catch (err) {
+      console.error(err);
+
+      setError(
+        err.message ||
+          "Unable to add member."
+      );
+    } finally {
+      setAdding(false);
+    }
+  }
+
+  async function handleRemoveMember(userId) {
+    const confirmed = window.confirm(
+      "Are you sure you want to remove this member?"
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setError("");
+
+      await removeGroupMember(
+        id,
+        userId
+      );
+
+      await loadMembers();
+    } catch (err) {
+      console.error(err);
+
+      setError(
+        err.message ||
+          "Unable to remove member."
+      );
+    }
+  }
+
+  async function handleGenerateQRCode() {
+    try {
+      setQrLoading(true);
+      setError("");
+
+      const data = await getGroupQRCode(id);
+
+      const code =
+        data?.code ??
+        data?.qrCode ??
+        data;
+
+      if (!code) {
+        throw new Error(
+          "The server did not return a QR code."
+        );
+      }
+
+      setQrCode(code);
+      setShowQRCode(true);
+    } catch (err) {
+      console.error(err);
+
+      setError(
+        err.message ||
+          "Unable to generate QR code."
+      );
+    } finally {
+      setQrLoading(false);
+    }
   }
 
   if (loading) {
@@ -48,155 +199,200 @@ function GroupDetails() {
     );
   }
 
-  if (error) {
-    return (
-      <main className="page">
-        <p className="error-message">{error}</p>
-
-        <Link to="/groups" className="button">
-          Back to Groups
-        </Link>
-      </main>
-    );
-  }
-
   if (!group) {
     return (
       <main className="page">
-        <p>Group not found.</p>
+        <h1>Group not found</h1>
 
-        <Link to="/groups" className="button">
+        <Link to="/groups">
           Back to Groups
         </Link>
       </main>
     );
   }
 
-  const members = group.members ?? [];
-  const expenses = group.expenses ?? [];
+  const memberIds = new Set(
+    members.map((member) =>
+      Number(
+        member.userId ??
+          member.user?.id ??
+          member.id
+      )
+    )
+  );
 
-  const totalSpent = expenses.reduce(
-    (total, expense) => total + Number(expense.amount),
-    0,
+  const availableUsers = users.filter(
+    (user) =>
+      !memberIds.has(Number(user.id))
   );
 
   return (
     <main className="page">
-      <Link to="/groups" className="back-link">
-        ← Back to Groups
-      </Link>
+      <div className="page-header">
+        <div>
+          <Link to="/groups">
+            ← Back to Groups
+          </Link>
 
-      {!showExpenseForm ? (
-        <>
-          <div className="page-header">
-            <div>
-              <h1>{group.name}</h1>
+          <h1>{group.name}</h1>
 
-              <p>Created by {group.createdBy?.name ?? "Unknown"}</p>
-            </div>
+          <p>
+            Manage your group members and
+            expenses.
+          </p>
+        </div>
+      </div>
 
-            <button className="button" onClick={() => setShowExpenseForm(true)}>
-              Add Expense
-            </button>
-          </div>
-
-          <section className="stats-grid">
-            <div className="stat-card">
-              <h3>Members</h3>
-              <p>{members.length}</p>
-            </div>
-
-            <div className="stat-card">
-              <h3>Expenses</h3>
-              <p>{expenses.length}</p>
-            </div>
-
-            <div className="stat-card">
-              <h3>Total Spent</h3>
-              <p>${totalSpent.toFixed(2)}</p>
-            </div>
-          </section>
-
-          <GroupBalances groupId={group.id} />
-          <section className="content-section">
-            <h2>Members</h2>
-
-            {members.length === 0 ? (
-              <p>No members found.</p>
-            ) : (
-              <div className="member-list">
-                {members.map((member) => {
-                  const user = member.user;
-
-                  const userId = user?.id ?? member.userId;
-
-                  return (
-                    <div className="member-card" key={userId}>
-                      <div className="member-avatar">
-                        {user?.name?.charAt(0).toUpperCase() ?? "?"}
-                      </div>
-
-                      <div>
-                        <strong>{user?.name ?? "Unknown User"}</strong>
-
-                        <p>{user?.email ?? ""}</p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-
-          <section className="content-section">
-            <div className="section-header">
-              <h2>Expenses</h2>
-
-              <button
-                className="button"
-                onClick={() => setShowExpenseForm(true)}
-              >
-                Add Expense
-              </button>
-            </div>
-
-            {expenses.length === 0 ? (
-              <div className="empty-state">
-                <p>No expenses in this group yet.</p>
-              </div>
-            ) : (
-              <div className="expense-list">
-                {expenses.map((expense) => (
-                  <Link
-                    to={`/expenses/${expense.id}`}
-                    className="expense-card"
-                    key={expense.id}
-                  >
-                    <div>
-                      <h3>{expense.description}</h3>
-
-                      <p>
-                        Added by{" "}
-                        {expense.createdBy?.name ??
-                          group.createdBy?.name ??
-                          "Unknown"}
-                      </p>
-                    </div>
-
-                    <strong>${Number(expense.amount).toFixed(2)}</strong>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </section>
-        </>
-      ) : (
-        <ExpenseForm
-          group={group}
-          onExpenseCreated={handleExpenseCreated}
-          onCancel={() => setShowExpenseForm(false)}
-        />
+      {error && (
+        <div className="form-error">
+          {error}
+        </div>
       )}
+
+      {/* MEMBERS */}
+      <section className="content-section">
+        <h2>
+          Members ({members.length})
+        </h2>
+
+        {members.length === 0 ? (
+          <div className="empty-state">
+            <p>
+              There are no members in this
+              group yet.
+            </p>
+          </div>
+        ) : (
+          <div className="member-list">
+            {members.map((member) => {
+              const user =
+                member.user ?? member;
+
+              const userId =
+                member.userId ?? user.id;
+
+              return (
+                <div
+                  className="member-card"
+                  key={userId}
+                >
+                  <div className="member-info">
+                    <strong>
+                      {user.name ??
+                        "Unknown User"}
+                    </strong>
+
+                    <span>
+                      {user.email ?? ""}
+                    </span>
+                  </div>
+
+                  <button
+                    className="secondary-button"
+                    onClick={() =>
+                      handleRemoveMember(
+                        userId
+                      )
+                    }
+                  >
+                    Remove
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* ADD MEMBER */}
+      <section className="content-section">
+        <h2>Add Member</h2>
+
+        {availableUsers.length === 0 ? (
+          <p>
+            There are no additional users
+            available to add.
+          </p>
+        ) : (
+          <form
+            className="member-form"
+            onSubmit={handleAddMember}
+          >
+            <select
+              value={selectedUserId}
+              onChange={(event) =>
+                setSelectedUserId(
+                  event.target.value
+                )
+              }
+            >
+              <option value="">
+                Select a user
+              </option>
+
+              {availableUsers.map((user) => (
+                <option
+                  key={user.id}
+                  value={user.id}
+                >
+                  {user.name} ({user.email})
+                </option>
+              ))}
+            </select>
+
+            <button
+              type="submit"
+              className="button"
+              disabled={adding}
+            >
+              {adding
+                ? "Adding..."
+                : "Add Member"}
+            </button>
+          </form>
+        )}
+      </section>
+
+      {/* QR CODE */}
+      <section className="content-section">
+        <h2>Invite Members</h2>
+
+        <p>
+          Generate a QR code that other
+          users can scan to join this group.
+        </p>
+
+        <button
+          className="button"
+          onClick={handleGenerateQRCode}
+          disabled={qrLoading}
+        >
+          {qrLoading
+            ? "Generating..."
+            : "Generate QR Code"}
+        </button>
+
+        {showQRCode && qrCode && (
+          <div className="qr-section">
+            <div className="qr-code-container">
+              <QRCodeSVG
+                value={qrCode}
+                size={220}
+                level="M"
+              />
+            </div>
+
+            <p className="qr-code-text">
+              Scan this code to join{" "}
+              <strong>{group.name}</strong>.
+            </p>
+
+            <p className="qr-code-value">
+              Code: {qrCode}
+            </p>
+          </div>
+        )}
+      </section>
     </main>
   );
 }

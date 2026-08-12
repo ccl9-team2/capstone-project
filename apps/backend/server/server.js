@@ -12,30 +12,73 @@ import expenseSplitRoutes from "./routes/expenseSplits.js";
 import userRoutes from "./routes/users.js";
 import groupRoutes from "./routes/groups.js";
 import expenseRoutes from "./routes/expenses.js";
-import errorHandler from "./middleware/errorHandler.js";
 import groupBalanceRoutes from "./routes/groupBalances.js";
+
+import errorHandler from "./middleware/errorHandler.js";
 
 dotenv.config();
 
 const app = express();
 const port = Number(process.env.PORT) || 3001;
 
+// -------------------------
+// Middleware
+// -------------------------
+
 app.use(cors());
 app.use(express.json());
 
+// -------------------------
+// Health Check
+// -------------------------
+
+app.get("/api/health", (_req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "Expense Splitter API is running."
+  });
+});
+
+// -------------------------
+// API Routes
+// -------------------------
+
 app.use("/api/users", userRoutes);
+
 app.use("/api/groups", groupRoutes);
-app.use("/api/expenses", expenseRoutes);
-app.use("/api/friendships", friendshipRoutes);
-app.use("/api/notifications", notificationRoutes);
-app.use("/api/comments", commentRoutes);
-app.use("/api/dashboard", dashboardRoutes);
-app.use("/api/stats", statsRoutes);
-app.use("/api/payments", paymentRoutes);
-app.use("/api/expense-splits", expenseSplitRoutes);
+
+// Group balance routes use /api/groups
+// alongside the regular group routes.
 app.use("/api/groups", groupBalanceRoutes);
+
+app.use("/api/expenses", expenseRoutes);
+
+app.use("/api/friendships", friendshipRoutes);
+
+app.use("/api/notifications", notificationRoutes);
+
+app.use("/api/comments", commentRoutes);
+
+app.use("/api/dashboard", dashboardRoutes);
+
+app.use("/api/stats", statsRoutes);
+
+app.use("/api/payments", paymentRoutes);
+
+app.use("/api/expense-splits", expenseSplitRoutes);
+
+// -------------------------
+// Error Handler
+// -------------------------
+
 app.use(errorHandler);
 
+// -------------------------
+// Start Server
+// -------------------------
+
 app.listen(port, () => {
-  console.log(`Backend listening on http://localhost:${port}`);
+  console.log(
+    `Backend listening on http://localhost:${port}`
+  );
 });
