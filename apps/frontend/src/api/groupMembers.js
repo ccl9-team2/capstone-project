@@ -1,31 +1,34 @@
 const API_URL = "http://localhost:3001/api";
 
-export async function getNotifications() {
+export async function getGroupMembers(groupId) {
   const response = await fetch(
-    `${API_URL}/notifications`
+    `${API_URL}/groups/${groupId}/members`
   );
 
   const result = await response.json();
 
   if (!response.ok) {
     throw new Error(
-      result.message || "Failed to load notifications."
+      result.message || "Failed to load group members."
     );
   }
 
   return result.data;
 }
 
-export async function markNotificationAsRead(id) {
+export async function addGroupMember(
+  groupId,
+  userId
+) {
   const response = await fetch(
-    `${API_URL}/notifications/${id}`,
+    `${API_URL}/groups/${groupId}/members`,
     {
-      method: "PUT",
+      method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        isRead: true
+        userId
       })
     }
   );
@@ -34,17 +37,19 @@ export async function markNotificationAsRead(id) {
 
   if (!response.ok) {
     throw new Error(
-      result.message ||
-        "Failed to mark notification as read."
+      result.message || "Failed to add member."
     );
   }
 
   return result.data;
 }
 
-export async function deleteNotification(id) {
+export async function removeGroupMember(
+  groupId,
+  userId
+) {
   const response = await fetch(
-    `${API_URL}/notifications/${id}`,
+    `${API_URL}/groups/${groupId}/members/${userId}`,
     {
       method: "DELETE"
     }
@@ -54,8 +59,7 @@ export async function deleteNotification(id) {
 
   if (!response.ok) {
     throw new Error(
-      result.message ||
-        "Failed to delete notification."
+      result.message || "Failed to remove member."
     );
   }
 

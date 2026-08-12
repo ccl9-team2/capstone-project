@@ -1,114 +1,214 @@
 import { useEffect, useState } from "react";
-import { getUsers } from "../api/users.js";
-import { getGroups } from "../api/groups.js";
-import { getExpenses } from "../api/expenses.js";
+import { Link } from "react-router-dom";
+
+import { getStats } from "../api/stats.js";
 
 function Dashboard() {
-  const [users, setUsers] = useState([]);
-  const [groups, setGroups] = useState([]);
-  const [expenses, setExpenses] = useState([]);
-
-  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] =
+    useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    async function loadDashboard() {
-      try {
-        setLoading(true);
+  async function loadStats() {
+    try {
+      setLoading(true);
+      setError("");
 
-        const [usersData, groupsData, expensesData] = await Promise.all([
-          getUsers(),
-          getGroups(),
-          getExpenses(),
-        ]);
+      const data = await getStats();
 
-        setUsers(usersData);
-        setGroups(groupsData);
-        setExpenses(expensesData);
-      } catch (err) {
-        console.error(err);
-        setError("Unable to load dashboard.");
-      } finally {
-        setLoading(false);
-      }
+      setStats(data);
+    } catch (err) {
+      console.error(err);
+
+      setError(
+        err.message ||
+          "Unable to load dashboard statistics."
+      );
+    } finally {
+      setLoading(false);
     }
+  }
 
-    loadDashboard();
+  useEffect(() => {
+    loadStats();
   }, []);
 
   if (loading) {
-    return <p>Loading dashboard...</p>;
+    return (
+      <main className="page">
+        <h1>Dashboard</h1>
+        <p>Loading dashboard...</p>
+      </main>
+    );
   }
 
   if (error) {
-    return <p>{error}</p>;
+    return (
+      <main className="page">
+        <h1>Dashboard</h1>
+
+        <div className="form-error">
+          {error}
+        </div>
+
+        <button
+          className="button"
+          onClick={loadStats}
+        >
+          Try Again
+        </button>
+      </main>
+    );
   }
 
-  const totalExpenses = expenses.reduce(
-    (total, expense) => total + Number(expense.amount),
-    0,
-  );
+  /*
+   * These fallbacks make the dashboard tolerant
+   * of slightly different property names from
+   * the backend.
+   */
+  const totalExpenses =
+    stats?.totalExpenses ??
+    stats?.totalExpenseAmount ??
+    0;
+
+  const totalOwed =
+    stats?.totalOwed ??
+    stats?.amountOwed ??
+    0;
+
+  const totalPaid =
+    stats?.totalPaid ??
+    stats?.amountPaid ??
+    0;
+
+  const moneyOwedToYou =
+    stats?.moneyOwedToYou ??
+    stats?.totalReceivable ??
+    0;
+
+  const groups =
+    stats?.groups ??
+    stats?.groupCount ??
+    0;
+
+  const friends =
+    stats?.friends ??
+    stats?.friendCount ??
+    0;
+
+  const unsettledExpenses =
+    stats?.unsettledExpenses ??
+    stats?.unsettledCount ??
+    0;
 
   return (
-    <main>
-      <h1>Expense Splitter</h1>
-
-      <p>Welcome to your dashboard!</p>
-
-      <section>
-        <h2>Overview</h2>
-
+    <main className="page">
+      <div className="page-header">
         <div>
-          <h3>Users</h3>
-          <p>{users.length}</p>
+          <h1>Dashboard</h1>
+
+          <p>
+            Here's an overview of your
+            expenses and balances.
+          </p>
+        </div>
+      </div>
+
+      <section className="stats-grid">
+        <div className="stat-card">
+          <span className="stat-label">
+            Total Expenses
+          </span>
+
+          <strong className="stat-value">
+            ${Number(totalExpenses).toFixed(2)}
+          </strong>
         </div>
 
-        <div>
-          <h3>Groups</h3>
-          <p>{groups.length}</p>
+        <div className="stat-card">
+          <span className="stat-label">
+            You Owe
+          </span>
+
+          <strong className="stat-value">
+            ${Number(totalOwed).toFixed(2)}
+          </strong>
         </div>
 
-        <div>
-          <h3>Expenses</h3>
-          <p>{expenses.length}</p>
+        <div className="stat-card">
+          <span className="stat-label">
+            You've Paid
+          </span>
+
+          <strong className="stat-value">
+            ${Number(totalPaid).toFixed(2)}
+          </strong>
         </div>
 
-        <div>
-          <h3>Total Spent</h3>
-          <p>${totalExpenses.toFixed(2)}</p>
+        <div className="stat-card">
+          <span className="stat-label">
+            You're Owed
+          </span>
+
+          <strong className="stat-value">
+            ${Number(moneyOwedToYou).toFixed(2)}
+          </strong>
         </div>
       </section>
 
-      <section>
-        <h2>Your Groups</h2>
+      <section className="stats-grid secondary-stats">
+        <div className="stat-card">
+          <span className="stat-label">
+            Groups
+          </span>
 
-        {groups.length === 0 ? (
-          <p>No groups yet.</p>
-        ) : (
-          groups.map((group) => (
-            <div key={group.id}>
-              <h3>{group.name}</h3>
+          <strong className="stat-value">
+            {groups}
+          </strong>
+        </div>
 
-              <p>Members: {group.members?.length ?? 0}</p>
-            </div>
-          ))
-        )}
+        <div className="stat-card">
+          <span className="stat-label">
+            Friends
+          </span>
+
+          <strong className="stat-value">
+            {friends}
+          </strong>
+        </div>
+
+        <div className="stat-card">
+          <span className="stat-label">
+            Unsettled Expenses
+          </span>
+
+          <strong className="stat-value">
+            {unsettledExpenses}
+          </strong>
+        </div>
       </section>
 
-      <section>
-        <h2>Recent Expenses</h2>
+      <section className="dashboard-actions">
+        <Link
+          to="/groups"
+          className="button"
+        >
+          View Groups
+        </Link>
 
-        {expenses.length === 0 ? (
-          <p>No expenses yet.</p>
-        ) : (
-          expenses.slice(0, 5).map((expense) => (
-            <div key={expense.id}>
-              <h3>{expense.description}</h3>
+        <Link
+          to="/friends"
+          className="secondary-button"
+        >
+          View Friends
+        </Link>
 
-              <p>${Number(expense.amount).toFixed(2)}</p>
-            </div>
-          ))
-        )}
+        <Link
+          to="/join-group"
+          className="secondary-button"
+        >
+          Join a Group
+        </Link>
       </section>
     </main>
   );
