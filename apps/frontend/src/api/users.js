@@ -23,3 +23,15 @@ export async function getUserById(id) {
 
   return result.data;
 }
+
+export async function getUserBalances(id) {
+  const response = await fetch(`${API_URL}/users/${id}/balances`);
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch balances.");
+  }
+
+  const result = await response.json();
+
+  return result.data;
+}

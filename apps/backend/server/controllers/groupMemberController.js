@@ -1,0 +1,149 @@
+import prisma from "../db/prisma.js";
+import { success, failure } from "../utils/apiResponse.js";
+import { requireFields } from "../utils/validators.js";
+
+/**
+ * GET /api/groups/:groupId/members
+ */
+export async function getGroupMembers(req, res, next) {
+  try {
+    const groupId = Number(req.params.groupId);
+
+    const group = await prisma.group.findUnique({
+      where: {
+        id: groupId,
+      },
+    });
+
+    if (!group) {
+      return failure(res, "Group not found.", 404);
+    }
+
+    const members = await prisma.groupMember.findMany({
+      where: {
+        groupId,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: {
+        id: "asc",
+      },
+    });
+
+    success(res, members);
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * POST /api/groups/:groupId/members
+ */
+export async function addGroupMember(req, res, next) {
+  try {
+    const groupId = Number(req.params.groupId);
+
+    requireFields(req.body, ["userId"]);
+
+    const userId = Number(req.body.userId);
+
+    const group = await prisma.group.findUnique({
+      where: {
+        id: groupId,
+      },
+    });
+
+    if (!group) {
+      return failure(res, "Group not found.", 404);
+    }
+
+    const user = await prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+    });
+
+    if (!user) {
+      return failure(res, "User not found.", 404);
+    }
+
+    const existingMember = await prisma.groupMember.findUnique({
+      where: {
+        groupId_userId: {
+          groupId,
+          userId,
+        },
+      },
+    });
+
+    if (existingMember) {
+      return failure(res, "User is already a member of this group.", 400);
+    }
+
+    const member = await prisma.groupMember.create({
+      data: {
+        groupId,
+        userId,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    success(res, member, 201);
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * DELETE /api/groups/:groupId/members/:userId
+ */
+export async function removeGroupMember(req, res, next) {
+  try {
+    const groupId = Number(req.params.groupId);
+
+    const userId = Number(req.params.userId);
+
+    const member = await prisma.groupMember.findUnique({
+      where: {
+        groupId_userId: {
+          groupId,
+          userId,
+        },
+      },
+    });
+
+    if (!member) {
+      return failure(res, "Group member not found.", 404);
+    }
+
+    await prisma.groupMember.delete({
+      where: {
+        groupId_userId: {
+          groupId,
+          userId,
+        },
+      },
+    });
+
+    success(res, {
+      message: "Group member removed successfully.",
+    });
+  } catch (error) {
+    next(error);
+  }
+}

@@ -9,6 +9,7 @@ import Navbar from "./components/Navbar.jsx";
 import Notifications from "./pages/Notifications.jsx";
 import JoinGroup from "./pages/JoinGroup.jsx";
 import CreateGroup from "./pages/CreateGroup.jsx";
+import CreateExpense from "./pages/CreateExpense.jsx";
 
 function App() {
   return (
@@ -24,6 +25,8 @@ function App() {
 
         <Route path="/groups/new" element={<CreateGroup />} />
 
+        <Route path="/groups/:id/expenses/new" element={<CreateExpense />} />
+
         <Route path="/groups/:id" element={<GroupDetails />} />
 
         <Route path="/expenses/:id" element={<ExpenseDetails />} />
@@ -33,7 +36,6 @@ function App() {
         <Route path="/notifications" element={<Notifications />} />
 
         <Route path="/join-group" element={<JoinGroup />} />
-
       </Routes>
     </>
   );
