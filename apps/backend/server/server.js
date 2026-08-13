@@ -13,6 +13,7 @@ import userRoutes from "./routes/users.js";
 import groupRoutes from "./routes/groups.js";
 import expenseRoutes from "./routes/expenses.js";
 import groupBalanceRoutes from "./routes/groupBalances.js";
+import groupMemberRoutes from "./routes/groupMembers.js";
 
 import errorHandler from "./middleware/errorHandler.js";
 
@@ -35,7 +36,7 @@ app.use(express.json());
 app.get("/api/health", (_req, res) => {
   res.status(200).json({
     success: true,
-    message: "Expense Splitter API is running."
+    message: "Expense Splitter API is running.",
   });
 });
 
@@ -46,6 +47,8 @@ app.get("/api/health", (_req, res) => {
 app.use("/api/users", userRoutes);
 
 app.use("/api/groups", groupRoutes);
+
+app.use("/api/groups", groupMemberRoutes);
 
 // Group balance routes use /api/groups
 // alongside the regular group routes.
@@ -78,7 +81,5 @@ app.use(errorHandler);
 // -------------------------
 
 app.listen(port, () => {
-  console.log(
-    `Backend listening on http://localhost:${port}`
-  );
+  console.log(`Backend listening on http://localhost:${port}`);
 });

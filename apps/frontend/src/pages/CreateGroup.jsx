@@ -31,7 +31,7 @@ function CreateGroup() {
           },
           body: JSON.stringify({
             name: name.trim(),
-            createdBy: 1
+            createdById: 1
           })
         }
       );
