@@ -5,15 +5,26 @@ import {
   getGroupById,
   createGroup,
   updateGroup,
-  deleteGroup
+  deleteGroup,
+
+  // 🟢 NEW
+  getGroupQRCode,
+  joinGroupWithCode,
 } from "../controllers/groupController.js";
 
 const router = express.Router();
 
 router.get("/", getGroups);
+
+// 🟢 NEW
+router.get("/:id/qr-code", getGroupQRCode);
+
 router.get("/:id", getGroupById);
 
 router.post("/", createGroup);
+
+// 🟢 NEW
+router.post("/join/:code", joinGroupWithCode);
 
 router.put("/:id", updateGroup);
 

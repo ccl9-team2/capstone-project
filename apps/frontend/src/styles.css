@@ -825,19 +825,13 @@ button:hover,
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(
-    4,
-    minmax(0, 1fr)
-  );
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
   margin-bottom: 24px;
 }
 
 .secondary-stats {
-  grid-template-columns: repeat(
-    3,
-    minmax(0, 1fr)
-  );
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .stat-card {
@@ -868,10 +862,7 @@ button:hover,
 @media (max-width: 900px) {
   .stats-grid,
   .secondary-stats {
-    grid-template-columns: repeat(
-      2,
-      minmax(0, 1fr)
-    );
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -879,5 +870,691 @@ button:hover,
   .stats-grid,
   .secondary-stats {
     grid-template-columns: 1fr;
+  }
+}
+
+/* =========================================================
+   🟢 DASHBOARD REDESIGN
+   These rules are intentionally scoped to .dashboard-page
+   so the rest of the app keeps its existing styling.
+   ========================================================= */
+
+.dashboard-page {
+  max-width: 1180px;
+}
+
+.dashboard-header {
+  margin-bottom: 24px;
+}
+
+.dashboard-header h1 {
+  margin-top: 0;
+}
+
+.dashboard-stats {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.dashboard-stat-card {
+  min-height: 138px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.dashboard-stat-card .stat-label {
+  margin-bottom: 10px;
+}
+
+.dashboard-stat-card .stat-value {
+  display: block;
+  font-size: 30px;
+  line-height: 1.1;
+  margin-bottom: 8px;
+}
+
+.stat-support {
+  display: block;
+  color: #6b7280;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.dashboard-positive {
+  color: #15803d;
+}
+
+.dashboard-negative {
+  color: #b91c1c;
+}
+
+.dashboard-main-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.85fr);
+  gap: 24px;
+  align-items: start;
+  margin-bottom: 24px;
+}
+
+.dashboard-panel {
+  margin-bottom: 0;
+}
+
+.dashboard-section-header {
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.dashboard-section-header h2 {
+  margin: 0 0 6px;
+}
+
+.dashboard-section-header p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.dashboard-balance-list {
+  margin-top: 6px;
+}
+
+.dashboard-balance-card {
+  padding: 14px 0;
+  gap: 18px;
+}
+
+.dashboard-balance-copy {
+  min-width: 0;
+}
+
+.dashboard-balance-copy strong {
+  display: block;
+}
+
+.dashboard-balance-copy p {
+  white-space: normal;
+}
+
+.dashboard-balance-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.dashboard-balance-actions > strong {
+  min-width: 64px;
+  text-align: right;
+}
+
+.dashboard-view-link {
+  display: inline-block;
+}
+
+.dashboard-activity-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-activity-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.dashboard-activity-card:first-child {
+  padding-top: 4px;
+}
+
+.dashboard-activity-card:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.dashboard-activity-card strong {
+  display: block;
+  line-height: 1.4;
+}
+
+.dashboard-activity-card p {
+  margin: 6px 0 0;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.activity-status {
+  flex-shrink: 0;
+  background: #dbeafe;
+  color: #1d4ed8;
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.dashboard-groups-panel {
+  margin-top: 0;
+}
+
+.dashboard-group-list {
+  display: flex;
+  flex-direction: column;
+  margin-top: 6px;
+}
+
+.dashboard-group-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  padding: 16px 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.dashboard-group-row:first-child {
+  padding-top: 4px;
+}
+
+.dashboard-group-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.dashboard-group-row strong {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.dashboard-group-row p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.dashboard-group-button {
+  flex-shrink: 0;
+}
+
+@media (max-width: 900px) {
+  /* 🟢 CHANGED: keep the three money cards side by side */
+  .dashboard-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .dashboard-main-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .dashboard-page {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .dashboard-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-section-header {
+    align-items: flex-start;
+  }
+
+  .dashboard-balance-card,
+  .dashboard-group-row {
+    align-items: flex-start;
+  }
+
+  .dashboard-balance-actions {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+  }
+
+  .dashboard-group-row {
+    flex-direction: column;
+  }
+
+  .dashboard-group-button {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+/* =========================================================
+   🟢 GROUP DETAILS REDESIGN
+   Scoped to .group-details-page so other screens stay intact.
+   ========================================================= */
+
+.group-details-page {
+  max-width: 1100px;
+}
+
+.group-details-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.group-details-header h1 {
+  margin: 14px 0 6px;
+}
+
+.group-back-link {
+  display: inline-block;
+  color: #2563eb;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.group-summary {
+  margin: 0;
+  color: #374151;
+  font-weight: 600;
+}
+
+.group-description {
+  margin: 6px 0 0;
+  color: #6b7280;
+}
+
+.group-add-expense-button {
+  flex-shrink: 0;
+}
+
+.group-details-card {
+  padding: 20px 24px;
+}
+
+.group-section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.group-section-heading h2,
+.group-invite-top h2 {
+  margin: 0 0 5px;
+}
+
+.group-section-heading p,
+.group-invite-top p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.group-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #2563eb;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.group-member-list {
+  margin-top: 4px;
+}
+
+.group-member-row {
+  padding: 13px 0;
+}
+
+.group-remove-button {
+  flex-shrink: 0;
+}
+
+.group-add-member-area {
+  margin-top: 14px;
+  padding-top: 18px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.group-subsection-copy {
+  margin-bottom: 12px;
+}
+
+.group-subsection-copy h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+}
+
+.group-subsection-copy p,
+.group-muted-text {
+  margin: 0;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.group-member-form {
+  max-width: none;
+}
+
+.group-member-form select {
+  min-width: 0;
+}
+
+.group-expense-list {
+  margin-top: 4px;
+}
+
+.group-expense-row {
+  padding: 14px 0;
+}
+
+.group-expense-copy strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.group-expense-copy p {
+  margin: 0;
+  color: #374151;
+  font-weight: 600;
+}
+
+.group-details-button {
+  flex-shrink: 0;
+}
+
+.group-invite-card {
+  padding-top: 20px;
+  padding-bottom: 20px;
+}
+
+.group-invite-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+}
+
+.group-qr-section {
+  margin-top: 20px;
+}
+
+@media (max-width: 700px) {
+  .group-details-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .group-add-expense-button {
+    text-align: center;
+  }
+
+  .group-invite-top {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .group-member-form {
+    flex-direction: column;
+  }
+
+  .group-expense-row {
+    gap: 16px;
+  }
+}
+
+@media (max-width: 520px) {
+  .group-details-card {
+    padding: 18px;
+  }
+
+  .group-member-row,
+  .group-expense-row {
+    align-items: flex-start;
+  }
+
+  .group-member-row {
+    gap: 14px;
+  }
+
+  .group-expense-row {
+    flex-direction: column;
+  }
+
+  .group-details-button,
+  .group-remove-button {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+/* =========================================================
+   🟢 FRIENDS PAGE REDESIGN
+   Scoped to .friends-page so other screens stay intact.
+   ========================================================= */
+
+.friends-page {
+  max-width: 1100px;
+}
+
+.friends-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.friends-header h1 {
+  margin: 0 0 6px;
+}
+
+.friends-header p {
+  margin: 0;
+  color: #6b7280;
+}
+
+.friends-summary {
+  display: flex;
+  gap: 12px;
+}
+
+.friends-summary > div {
+  min-width: 82px;
+  padding: 10px 14px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  text-align: center;
+}
+
+.friends-summary strong {
+  display: block;
+  font-size: 20px;
+  line-height: 1.1;
+  margin-bottom: 4px;
+}
+
+.friends-summary span {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.friends-main-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.friends-side-column {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.friends-panel {
+  margin-bottom: 0;
+  padding: 20px;
+}
+
+.friends-section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.friends-section-heading h2 {
+  margin: 0 0 4px;
+}
+
+.friends-section-heading p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.friends-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.compact-friend-list {
+  margin-top: 2px;
+}
+
+.compact-friend-card {
+  padding: 13px 0;
+}
+
+.friend-person {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.friend-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: #dbeafe;
+  color: #2563eb;
+  font-weight: 700;
+}
+
+.friend-person strong {
+  display: block;
+}
+
+.friend-person p {
+  margin: 3px 0 0;
+  color: #6b7280;
+  font-size: 13px;
+  word-break: break-word;
+}
+
+.compact-friend-form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  max-width: none;
+}
+
+.compact-friend-form input {
+  min-width: 0;
+}
+
+.friends-inline-empty {
+  padding: 12px 0 2px;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.friends-empty-state {
+  padding: 28px 20px;
+}
+
+.request-card {
+  align-items: flex-start;
+}
+
+.request-status {
+  display: inline-block;
+  margin-top: 6px;
+  color: #6b7280;
+  font-size: 12px;
+}
+
+@media (max-width: 850px) {
+  .friends-main-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .friends-side-column {
+    gap: 18px;
+  }
+}
+
+@media (max-width: 650px) {
+  .friends-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .friends-summary {
+    width: 100%;
+  }
+
+  .friends-summary > div {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .compact-friend-form {
+    grid-template-columns: 1fr;
+  }
+
+  .compact-friend-card {
+    align-items: flex-start;
+    gap: 14px;
+  }
+
+  .request-card {
+    flex-direction: column;
+  }
+
+  .request-card .friend-actions {
+    width: 100%;
+  }
+
+  .request-card .friend-actions button {
+    flex: 1;
   }
 }
