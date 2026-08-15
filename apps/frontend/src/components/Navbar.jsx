@@ -1,11 +1,11 @@
-import { NavLink } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 
 function Navbar() {
   return (
     <nav className="navbar">
-      <div className="navbar-brand">
-        <NavLink to="/dashboard">Expense Splitter</NavLink>
-      </div>
+      <Link to="/dashboard" className="brand">
+        UOME
+      </Link>
 
       <div className="navbar-links">
         <NavLink

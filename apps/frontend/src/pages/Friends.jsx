@@ -1,21 +1,24 @@
 import { useEffect, useState } from "react";
+
 import {
   getFriendships,
   createFriendship,
   updateFriendship,
-  deleteFriendship
+  deleteFriendship,
 } from "../api/friendships.js";
 
-function Friends() {
-  const [friendships, setFriendships] =
-    useState([]);
+import { getUsers } from "../api/users.js";
 
+function Friends() {
+  // 🟢 TEMPORARY current user until login/authentication is added
+  const CURRENT_USER_ID = 3;
+
+  const [friendships, setFriendships] = useState([]);
+  const [users, setUsers] = useState([]);
   const [email, setEmail] = useState("");
 
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] =
-    useState(false);
-
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
   async function loadFriendships() {
@@ -23,16 +26,17 @@ function Friends() {
       setLoading(true);
       setError("");
 
-      const data = await getFriendships();
+      const [friendshipData, userData] = await Promise.all([
+        getFriendships(),
+        getUsers(),
+      ]);
 
-      setFriendships(data);
+      setFriendships(friendshipData);
+      setUsers(userData);
     } catch (err) {
       console.error(err);
 
-      setError(
-        err.message ||
-          "Unable to load friends."
-      );
+      setError(err.message || "Unable to load friends.");
     } finally {
       setLoading(false);
     }
@@ -54,12 +58,23 @@ function Friends() {
       setSubmitting(true);
       setError("");
 
-      /*
-       * Adjust these fields if your backend
-       * uses a different request format.
-       */
+      const friendUser = users.find(
+        (user) => user.email.toLowerCase() === email.trim().toLowerCase(),
+      );
+
+      if (!friendUser) {
+        setError("No user was found with that email.");
+        return;
+      }
+
+      if (friendUser.id === CURRENT_USER_ID) {
+        setError("You cannot send a friend request to yourself.");
+        return;
+      }
+
       await createFriendship({
-        email: email.trim()
+        senderId: CURRENT_USER_ID,
+        receiverId: friendUser.id,
       });
 
       setEmail("");
@@ -68,10 +83,7 @@ function Friends() {
     } catch (err) {
       console.error(err);
 
-      setError(
-        err.message ||
-          "Unable to send friend request."
-      );
+      setError(err.message || "Unable to send friend request.");
     } finally {
       setSubmitting(false);
     }
@@ -82,17 +94,14 @@ function Friends() {
       setError("");
 
       await updateFriendship(id, {
-        status: "accepted"
+        status: "Accepted",
       });
 
       await loadFriendships();
     } catch (err) {
       console.error(err);
 
-      setError(
-        err.message ||
-          "Unable to accept friend request."
-      );
+      setError(err.message || "Unable to accept friend request.");
     }
   }
 
@@ -101,17 +110,14 @@ function Friends() {
       setError("");
 
       await updateFriendship(id, {
-        status: "rejected"
+        status: "Rejected",
       });
 
       await loadFriendships();
     } catch (err) {
       console.error(err);
 
-      setError(
-        err.message ||
-          "Unable to reject friend request."
-      );
+      setError(err.message || "Unable to reject friend request.");
     }
   }
 
@@ -125,200 +131,251 @@ function Friends() {
     } catch (err) {
       console.error(err);
 
-      setError(
-        err.message ||
-          "Unable to remove friend."
-      );
+      setError(err.message || "Unable to remove friendship.");
     }
   }
 
   if (loading) {
     return (
-      <main className="page">
+      <main className="page friends-page">
         <h1>Friends</h1>
         <p>Loading friends...</p>
       </main>
     );
   }
 
-  const acceptedFriends =
-    friendships.filter(
-      (friendship) =>
-        friendship.status === "accepted"
-    );
+  const myFriendships = friendships.filter(
+    (friendship) =>
+      friendship.senderId === CURRENT_USER_ID ||
+      friendship.receiverId === CURRENT_USER_ID,
+  );
 
-  const pendingRequests =
-    friendships.filter(
-      (friendship) =>
-        friendship.status === "pending"
-    );
+  const acceptedFriends = myFriendships.filter(
+    (friendship) => friendship.status?.toLowerCase() === "accepted",
+  );
+
+  const pendingRequests = myFriendships.filter(
+    (friendship) =>
+      friendship.status?.toLowerCase() === "pending" &&
+      friendship.receiverId === CURRENT_USER_ID,
+  );
+
+  const sentRequests = myFriendships.filter(
+    (friendship) =>
+      friendship.status?.toLowerCase() === "pending" &&
+      friendship.senderId === CURRENT_USER_ID,
+  );
+
+  function getFriend(friendship) {
+    if (friendship.senderId === CURRENT_USER_ID) {
+      return friendship.receiver;
+    }
+
+    return friendship.sender;
+  }
 
   return (
-    <main className="page">
-      <div className="page-header">
+    <main className="page friends-page">
+      {/* 🟢 COMPACT HEADER */}
+      <div className="friends-header">
         <div>
           <h1>Friends</h1>
-          <p>
-            Manage your friends and
-            connection requests.
-          </p>
+
+          <p>Manage your connections and friend requests in one place.</p>
         </div>
       </div>
 
-      {error && (
-        <div className="form-error">
-          {error}
-        </div>
-      )}
+      {error && <div className="form-error">{error}</div>}
 
-      <section className="content-section">
-        <h2>Add a Friend</h2>
+      {/* 🟢 ADD FRIEND + MAIN CONTENT */}
+      <div className="friends-main-grid">
+        <section className="content-section friends-panel friends-list-panel">
+          <div className="friends-section-heading">
+            <div>
+              <h2>Your Friends</h2>
+              <p>People you've connected with.</p>
+            </div>
 
-        <form
-          className="friend-form"
-          onSubmit={handleSendRequest}
-        >
-          <input
-            type="email"
-            placeholder="Friend's email"
-            value={email}
-            onChange={(event) =>
-              setEmail(event.target.value)
-            }
-          />
-
-          <button
-            type="submit"
-            className="button"
-            disabled={submitting}
-          >
-            {submitting
-              ? "Sending..."
-              : "Send Request"}
-          </button>
-        </form>
-      </section>
-
-      <section className="content-section">
-        <h2>
-          Friends ({acceptedFriends.length})
-        </h2>
-
-        {acceptedFriends.length === 0 ? (
-          <div className="empty-state">
-            <p>
-              You don't have any friends yet.
-            </p>
+            <span className="friends-count-badge">
+              {acceptedFriends.length}
+            </span>
           </div>
-        ) : (
-          <div className="friend-list">
-            {acceptedFriends.map(
-              (friendship) => {
-                const friend =
-                  friendship.user ??
-                  friendship.friend;
+
+          {acceptedFriends.length === 0 ? (
+            <div className="empty-state friends-empty-state">
+              <p>You don't have any friends yet.</p>
+            </div>
+          ) : (
+            <div className="friend-list compact-friend-list">
+              {acceptedFriends.map((friendship) => {
+                const friend = getFriend(friendship);
 
                 return (
                   <div
-                    className="friend-card"
+                    className="friend-card compact-friend-card"
                     key={friendship.id}
                   >
-                    <div>
-                      <strong>
-                        {friend?.name ??
-                          "Unknown User"}
-                      </strong>
+                    <div className="friend-person">
+                      <div className="friend-avatar">
+                        {(friend?.name ?? "?").charAt(0).toUpperCase()}
+                      </div>
 
-                      <p>
-                        {friend?.email ?? ""}
-                      </p>
+                      <div>
+                        <strong>{friend?.name ?? "Unknown User"}</strong>
+
+                        <p>{friend?.email ?? ""}</p>
+                      </div>
                     </div>
 
                     <button
                       className="secondary-button"
-                      onClick={() =>
-                        handleRemove(
-                          friendship.id
-                        )
-                      }
+                      onClick={() => handleRemove(friendship.id)}
                     >
                       Remove
                     </button>
                   </div>
                 );
-              }
-            )}
-          </div>
-        )}
-      </section>
+              })}
+            </div>
+          )}
+        </section>
 
-      <section className="content-section">
-        <h2>
-          Pending Requests (
-          {pendingRequests.length})
-        </h2>
+        <div className="friends-side-column">
+          <section className="content-section friends-panel add-friend-panel">
+            <div className="friends-section-heading">
+              <div>
+                <h2>Add a Friend</h2>
+                <p>Send a request using their email.</p>
+              </div>
+            </div>
 
-        {pendingRequests.length === 0 ? (
-          <div className="empty-state">
-            <p>
-              You don't have any pending
-              requests.
-            </p>
-          </div>
-        ) : (
-          <div className="friend-list">
-            {pendingRequests.map(
-              (friendship) => {
-                const friend =
-                  friendship.user ??
-                  friendship.friend;
+            <form
+              className="friend-form compact-friend-form"
+              onSubmit={handleSendRequest}
+            >
+              <input
+                type="email"
+                placeholder="Friend's email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+              />
 
-                return (
-                  <div
-                    className="friend-card"
-                    key={friendship.id}
-                  >
-                    <div>
-                      <strong>
-                        {friend?.name ??
-                          "Unknown User"}
-                      </strong>
+              <button type="submit" className="button" disabled={submitting}>
+                {submitting ? "Sending..." : "Send Request"}
+              </button>
+            </form>
+          </section>
 
-                      <p>
-                        {friend?.email ?? ""}
-                      </p>
+          <section className="content-section friends-panel">
+            <div className="friends-section-heading">
+              <div>
+                <h2>Pending Requests</h2>
+                <p>Requests waiting for your response.</p>
+              </div>
+
+              <span className="friends-count-badge">
+                {pendingRequests.length}
+              </span>
+            </div>
+
+            {pendingRequests.length === 0 ? (
+              <div className="friends-inline-empty">No pending requests.</div>
+            ) : (
+              <div className="friend-list compact-friend-list">
+                {pendingRequests.map((friendship) => {
+                  const friend = getFriend(friendship);
+
+                  return (
+                    <div
+                      className="friend-card compact-friend-card request-card"
+                      key={friendship.id}
+                    >
+                      <div className="friend-person">
+                        <div className="friend-avatar">
+                          {(friend?.name ?? "?").charAt(0).toUpperCase()}
+                        </div>
+
+                        <div>
+                          <strong>{friend?.name ?? "Unknown User"}</strong>
+
+                          <p>{friend?.email ?? ""}</p>
+                        </div>
+                      </div>
+
+                      <div className="friend-actions">
+                        <button
+                          className="button"
+                          onClick={() => handleAccept(friendship.id)}
+                        >
+                          Accept
+                        </button>
+
+                        <button
+                          className="secondary-button"
+                          onClick={() => handleReject(friendship.id)}
+                        >
+                          Reject
+                        </button>
+                      </div>
                     </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
 
-                    <div className="friend-actions">
-                      <button
-                        className="button"
-                        onClick={() =>
-                          handleAccept(
-                            friendship.id
-                          )
-                        }
-                      >
-                        Accept
-                      </button>
+          <section className="content-section friends-panel">
+            <div className="friends-section-heading">
+              <div>
+                <h2>Sent Requests</h2>
+                <p>Requests that are still waiting.</p>
+              </div>
+
+              <span className="friends-count-badge">{sentRequests.length}</span>
+            </div>
+
+            {sentRequests.length === 0 ? (
+              <div className="friends-inline-empty">No sent requests.</div>
+            ) : (
+              <div className="friend-list compact-friend-list">
+                {sentRequests.map((friendship) => {
+                  const friend = getFriend(friendship);
+
+                  return (
+                    <div
+                      className="friend-card compact-friend-card request-card"
+                      key={friendship.id}
+                    >
+                      <div className="friend-person">
+                        <div className="friend-avatar">
+                          {(friend?.name ?? "?").charAt(0).toUpperCase()}
+                        </div>
+
+                        <div>
+                          <strong>{friend?.name ?? "Unknown User"}</strong>
+
+                          <p>{friend?.email ?? ""}</p>
+
+                          <span className="request-status">
+                            Waiting for response
+                          </span>
+                        </div>
+                      </div>
 
                       <button
                         className="secondary-button"
-                        onClick={() =>
-                          handleReject(
-                            friendship.id
-                          )
-                        }
+                        onClick={() => handleRemove(friendship.id)}
                       >
-                        Reject
+                        Cancel
                       </button>
                     </div>
-                  </div>
-                );
-              }
+                  );
+                })}
+              </div>
             )}
-          </div>
-        )}
-      </section>
+          </section>
+        </div>
+      </div>
     </main>
   );
 }

@@ -13,8 +13,8 @@ export async function getGroups(req, res, next) {
           select: {
             id: true,
             name: true,
-            email: true
-          }
+            email: true,
+          },
         },
         members: {
           include: {
@@ -22,15 +22,15 @@ export async function getGroups(req, res, next) {
               select: {
                 id: true,
                 name: true,
-                email: true
-              }
-            }
-          }
-        }
+                email: true,
+              },
+            },
+          },
+        },
       },
       orderBy: {
-        id: "asc"
-      }
+        id: "asc",
+      },
     });
 
     success(res, groups);
@@ -52,11 +52,11 @@ export async function getGroupById(req, res, next) {
         createdBy: true,
         members: {
           include: {
-            user: true
-          }
+            user: true,
+          },
         },
-        expenses: true
-      }
+        expenses: true,
+      },
     });
 
     if (!group) {
@@ -82,15 +82,15 @@ export async function createGroup(req, res, next) {
       const newGroup = await tx.group.create({
         data: {
           name,
-          createdById: Number(createdById)
-        }
+          createdById: Number(createdById),
+        },
       });
 
       await tx.groupMember.create({
         data: {
           groupId: newGroup.id,
-          userId: Number(createdById)
-        }
+          userId: Number(createdById),
+        },
       });
 
       return newGroup;
@@ -110,7 +110,7 @@ export async function updateGroup(req, res, next) {
     const id = Number(req.params.id);
 
     const existing = await prisma.group.findUnique({
-      where: { id }
+      where: { id },
     });
 
     if (!existing) {
@@ -120,8 +120,8 @@ export async function updateGroup(req, res, next) {
     const updated = await prisma.group.update({
       where: { id },
       data: {
-        name: req.body.name
-      }
+        name: req.body.name,
+      },
     });
 
     success(res, updated);
@@ -138,7 +138,7 @@ export async function deleteGroup(req, res, next) {
     const id = Number(req.params.id);
 
     const existing = await prisma.group.findUnique({
-      where: { id }
+      where: { id },
     });
 
     if (!existing) {
@@ -147,33 +147,200 @@ export async function deleteGroup(req, res, next) {
 
     const expenseCount = await prisma.expense.count({
       where: {
-        groupId: id
-      }
+        groupId: id,
+      },
     });
 
     if (expenseCount > 0) {
-      return failure(
-        res,
-        "Cannot delete a group that contains expenses.",
-        400
-      );
+      return failure(res, "Cannot delete a group that contains expenses.", 400);
     }
 
     await prisma.groupMember.deleteMany({
       where: {
-        groupId: id
-      }
+        groupId: id,
+      },
     });
 
     await prisma.group.delete({
       where: {
-        id
-      }
+        id,
+      },
     });
 
     success(res, {
-      message: "Group deleted successfully."
+      message: "Group deleted successfully.",
     });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * 🟢 NEW
+ * GET /api/groups/:id/qr-code
+ *
+ * Returns a join code for a group.
+ * For now we use GROUP-{id} so existing groups
+ * do not require a database migration.
+ */
+export async function getGroupQRCode(req, res, next) {
+  try {
+    const id = Number(req.params.id);
+
+    if (!Number.isInteger(id)) {
+      return failure(res, "Invalid group ID.", 400);
+    }
+
+    const group = await prisma.group.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+
+    if (!group) {
+      return failure(res, "Group not found.", 404);
+    }
+
+    const code = `GROUP-${group.id}`;
+
+    success(res, {
+      code,
+      groupId: group.id,
+      groupName: group.name,
+      group,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * 🟢 NEW
+ * POST /api/groups/join/:code
+ *
+ * Adds a user to a group using a join code
+ * such as GROUP-4.
+ */
+export async function joinGroupWithCode(req, res, next) {
+  try {
+    const code = String(req.params.code || "")
+      .trim()
+      .toUpperCase();
+
+    requireFields(req.body, ["userId"]);
+
+    const userId = Number(req.body.userId);
+
+    if (!Number.isInteger(userId)) {
+      return failure(res, "Invalid user ID.", 400);
+    }
+
+    const match = code.match(/^GROUP-(\d+)$/);
+
+    if (!match) {
+      return failure(
+        res,
+        "Invalid group code. Group codes should look like GROUP-4.",
+        400,
+      );
+    }
+
+    const groupId = Number(match[1]);
+
+    const group = await prisma.group.findUnique({
+      where: {
+        id: groupId,
+      },
+      include: {
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        members: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!group) {
+      return failure(res, "No group was found for that code.", 404);
+    }
+
+    const user = await prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+      },
+    });
+
+    if (!user) {
+      return failure(res, "User not found.", 404);
+    }
+
+    const existingMember = await prisma.groupMember.findUnique({
+      where: {
+        groupId_userId: {
+          groupId,
+          userId,
+        },
+      },
+    });
+
+    if (existingMember) {
+      return failure(res, "You are already a member of this group.", 400);
+    }
+
+    await prisma.groupMember.create({
+      data: {
+        groupId,
+        userId,
+      },
+    });
+
+    const updatedGroup = await prisma.group.findUnique({
+      where: {
+        id: groupId,
+      },
+      include: {
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        members: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    success(res, updatedGroup, 201);
   } catch (error) {
     next(error);
   }
