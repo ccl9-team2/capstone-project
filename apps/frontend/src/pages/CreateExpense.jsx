@@ -11,9 +11,7 @@ function CreateExpense() {
   const [members, setMembers] = useState([]);
 
   const [description, setDescription] = useState("");
-
   const [amount, setAmount] = useState("");
-
   const [createdById, setCreatedById] = useState("");
 
   const [loading, setLoading] = useState(true);
@@ -31,7 +29,6 @@ function CreateExpense() {
       ]);
 
       const groupResult = await groupResponse.json();
-
       const membersResult = await membersResponse.json();
 
       if (!groupResponse.ok) {
@@ -47,7 +44,8 @@ function CreateExpense() {
       setGroup(groupResult.data);
       setMembers(membersResult.data);
 
-      // Default to the first member
+      // 🟢 TEMPORARY default:
+      // Use the first group member until authentication is added.
       if (membersResult.data.length > 0) {
         const firstMember = membersResult.data[0];
 
@@ -80,7 +78,7 @@ function CreateExpense() {
     }
 
     if (!createdById) {
-      setError("Please select who created the expense.");
+      setError("Please select who paid for this expense.");
       return;
     }
 
@@ -121,7 +119,7 @@ function CreateExpense() {
 
   if (loading) {
     return (
-      <main className="page">
+      <main className="page create-expense-page">
         <p>Loading group...</p>
       </main>
     );
@@ -129,7 +127,7 @@ function CreateExpense() {
 
   if (!group) {
     return (
-      <main className="page">
+      <main className="page create-expense-page">
         <h1>Group not found</h1>
 
         <Link to="/groups">Back to Groups</Link>
@@ -138,83 +136,134 @@ function CreateExpense() {
   }
 
   return (
-    <main className="page">
-      <div className="page-header">
-        <div>
-          <Link to={`/groups/${id}`}>← Back to {group.name}</Link>
+    <main className="page create-expense-page">
+      {/* 🟢 POLISHED HEADER */}
+      <div className="create-expense-header">
+        <Link
+          to={`/groups/${id}`}
+          className="back-link create-expense-back-link"
+        >
+          ← Back to {group.name}
+        </Link>
 
-          <h1>Add Expense</h1>
+        <h1>Add Expense</h1>
 
-          <p>Add an expense to {group.name}.</p>
-        </div>
+        <p>
+          Add a shared expense to <strong>{group.name}</strong>.
+        </p>
       </div>
 
-      {error && <div className="form-error">{error}</div>}
+      {/* 🟢 COMPACT EXPENSE CARD */}
+      <section className="content-section create-expense-card">
+        <div className="create-expense-card-header">
+          <div>
+            <h2>Expense Details</h2>
 
-      <form className="form" onSubmit={handleSubmit}>
-        <div className="form-group">
-          <label htmlFor="description">Description</label>
-
-          <input
-            id="description"
-            type="text"
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
-            placeholder="e.g. Team Dinner"
-            disabled={creating}
-          />
+            <p>Enter the purchase information below.</p>
+          </div>
         </div>
 
-        <div className="form-group">
-          <label htmlFor="amount">Amount</label>
+        {error && <div className="form-error">{error}</div>}
 
-          <input
-            id="amount"
-            type="number"
-            min="0.01"
-            step="0.01"
-            value={amount}
-            onChange={(event) => setAmount(event.target.value)}
-            placeholder="90.00"
-            disabled={creating}
-          />
-        </div>
+        <form className="create-expense-form" onSubmit={handleSubmit}>
+          <div className="create-expense-field">
+            <label htmlFor="description">What was this for?</label>
 
-        <div className="form-group">
-          <label htmlFor="createdById">Paid By</label>
+            <input
+              id="description"
+              type="text"
+              value={description}
+              onChange={(event) => {
+                setDescription(event.target.value);
 
-          <select
-            id="createdById"
-            value={createdById}
-            onChange={(event) => setCreatedById(event.target.value)}
-            disabled={creating}
-          >
-            <option value="">Select a member</option>
+                if (error) {
+                  setError("");
+                }
+              }}
+              placeholder="Example: Team Dinner"
+              disabled={creating}
+            />
+          </div>
 
-            {members.map((member) => {
-              const user = member.user ?? member;
+          <div className="create-expense-two-column">
+            <div className="create-expense-field">
+              <label htmlFor="amount">Amount</label>
 
-              const userId = member.userId ?? user.id;
+              <div className="create-expense-amount-input">
+                <span>$</span>
 
-              return (
-                <option key={userId} value={userId}>
-                  {user.name}
-                </option>
-              );
-            })}
-          </select>
-        </div>
+                <input
+                  id="amount"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={amount}
+                  onChange={(event) => {
+                    setAmount(event.target.value);
 
-        <div className="form-actions">
-          <Link to={`/groups/${id}`} className="secondary-button">
-            Cancel
-          </Link>
+                    if (error) {
+                      setError("");
+                    }
+                  }}
+                  placeholder="0.00"
+                  disabled={creating}
+                />
+              </div>
+            </div>
 
-          <button type="submit" className="button" disabled={creating}>
-            {creating ? "Creating..." : "Create Expense"}
-          </button>
-        </div>
-      </form>
+            <div className="create-expense-field">
+              <label htmlFor="createdById">Who paid?</label>
+
+              <select
+                id="createdById"
+                value={createdById}
+                onChange={(event) => {
+                  setCreatedById(event.target.value);
+
+                  if (error) {
+                    setError("");
+                  }
+                }}
+                disabled={creating}
+              >
+                <option value="">Select a member</option>
+
+                {members.map((member) => {
+                  const user = member.user ?? member;
+
+                  const userId = member.userId ?? user.id;
+
+                  return (
+                    <option key={userId} value={userId}>
+                      {user.name}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+          </div>
+
+          {/* 🟢 FRIENDLIER SPLIT EXPLANATION */}
+          <div className="create-expense-note">
+            <strong>How will this be split?</strong>
+
+            <p>
+              For now, UOME will split this expense equally between all members
+              of {group.name}.
+            </p>
+          </div>
+
+          <div className="create-expense-actions">
+            <Link to={`/groups/${id}`} className="secondary-button">
+              Cancel
+            </Link>
+
+            <button type="submit" className="button" disabled={creating}>
+              {creating ? "Creating..." : "Create Expense"}
+            </button>
+          </div>
+        </form>
+      </section>
     </main>
   );
 }

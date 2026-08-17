@@ -1,25 +1,61 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
-import { getUserBalances, getUsers } from "../api/users.js";
-
+import { getUserBalances } from "../api/users.js";
 import { getNotifications } from "../api/notifications.js";
 
 const API_URL = "http://localhost:3001/api";
 
 function Dashboard() {
-  // 🟢 TEMPORARY current user until login/authentication is added
-  const CURRENT_USER_ID = 3;
+  const navigate = useNavigate();
+
+  // =========================
+  // 🟢 AUTHENTICATED USER
+  // =========================
 
   const [currentUser, setCurrentUser] = useState(null);
+
   const [balances, setBalances] = useState(null);
+
   const [notifications, setNotifications] = useState([]);
+
   const [groups, setGroups] = useState([]);
 
   const [loading, setLoading] = useState(true);
+
   const [error, setError] = useState("");
 
-  async function getCurrentUserGroups() {
+  // =========================
+  // 🟢 GET LOGGED-IN USER
+  // =========================
+
+  function getLoggedInUser() {
+    try {
+      const storedUser = localStorage.getItem("uome-user");
+
+      if (!storedUser) {
+        return null;
+      }
+
+      const user = JSON.parse(storedUser);
+
+      if (!user?.id) {
+        return null;
+      }
+
+      return user;
+    } catch (err) {
+      console.error("Unable to read logged-in user:", err);
+
+      return null;
+    }
+  }
+
+  // =========================
+  // GET CURRENT USER GROUPS
+  // =========================
+
+  async function getCurrentUserGroups(userId) {
     const response = await fetch(`${API_URL}/groups`);
 
     const result = await response.json();
@@ -34,21 +70,15 @@ function Dashboard() {
       group.members?.some((member) => {
         const memberUserId = member.userId ?? member.user?.id;
 
-        return Number(memberUserId) === CURRENT_USER_ID;
+        return Number(memberUserId) === Number(userId);
       }),
     );
   }
 
-  // 🟢 NEW
-  // Gets the current user's information
-  async function getCurrentUser() {
-    const users = await getUsers();
+  // =========================
+  // GREETING
+  // =========================
 
-    return users.find((user) => Number(user.id) === CURRENT_USER_ID);
-  }
-
-  // 🟢 NEW
-  // Creates a greeting based on the user's local time
   function getGreeting() {
     const hour = new Date().getHours();
 
@@ -63,20 +93,36 @@ function Dashboard() {
     return "Good evening";
   }
 
+  // =========================
+  // LOAD DASHBOARD
+  // =========================
+
   async function loadDashboard() {
     try {
       setLoading(true);
+
       setError("");
 
-      const [userData, balanceData, notificationData, groupData] =
-        await Promise.all([
-          getCurrentUser(),
-          getUserBalances(CURRENT_USER_ID),
-          getNotifications(),
-          getCurrentUserGroups(),
-        ]);
+      // 🟢 Get user from login session
+      const user = getLoggedInUser();
 
-      setCurrentUser(userData);
+      if (!user) {
+        navigate("/login", {
+          replace: true,
+        });
+
+        return;
+      }
+
+      setCurrentUser(user);
+
+      const [balanceData, notificationData, groupData] = await Promise.all([
+        getUserBalances(user.id),
+
+        getNotifications(user.id),
+
+        getCurrentUserGroups(user.id),
+      ]);
 
       setBalances(balanceData);
 
@@ -96,6 +142,10 @@ function Dashboard() {
     loadDashboard();
   }, []);
 
+  // =========================
+  // LOADING
+  // =========================
+
   if (loading) {
     return (
       <main className="page dashboard-page">
@@ -105,6 +155,10 @@ function Dashboard() {
       </main>
     );
   }
+
+  // =========================
+  // ERROR
+  // =========================
 
   if (error) {
     return (
@@ -119,6 +173,10 @@ function Dashboard() {
       </main>
     );
   }
+
+  // =========================
+  // DASHBOARD DATA
+  // =========================
 
   const totalOwed = Number(balances?.totalYouOwe ?? 0);
 
@@ -136,10 +194,14 @@ function Dashboard() {
 
   const userName = currentUser?.name ?? "there";
 
+  // =========================
+  // PAGE
+  // =========================
+
   return (
     <main className="page dashboard-page">
       {/* ========================= */}
-      {/* 🟢 WARMER USER GREETING */}
+      {/* USER GREETING */}
       {/* ========================= */}
 
       <div className="page-header dashboard-header">
@@ -211,7 +273,9 @@ function Dashboard() {
       {/* ========================= */}
 
       <div className="dashboard-main-grid">
+        {/* ========================= */}
         {/* WHO OWES WHAT */}
+        {/* ========================= */}
 
         <section className="content-section dashboard-panel">
           <div className="section-header dashboard-section-header">
@@ -228,7 +292,9 @@ function Dashboard() {
             </div>
           ) : (
             <div className="balance-list dashboard-balance-list">
+              {/* ========================= */}
               {/* MONEY OWED TO USER */}
+              {/* ========================= */}
 
               {owedToYou.map((balance) => (
                 <div
@@ -255,7 +321,9 @@ function Dashboard() {
                 </div>
               ))}
 
+              {/* ========================= */}
               {/* MONEY USER OWES */}
+              {/* ========================= */}
 
               {youOwe.map((balance) => (
                 <div
@@ -285,7 +353,9 @@ function Dashboard() {
           )}
         </section>
 
+        {/* ========================= */}
         {/* WHAT'S NEW */}
+        {/* ========================= */}
 
         <section className="content-section dashboard-panel">
           <div className="section-header dashboard-section-header">

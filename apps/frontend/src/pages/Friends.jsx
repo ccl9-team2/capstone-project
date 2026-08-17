@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 
+import { useNavigate } from "react-router-dom";
+
 import {
   getFriendships,
   createFriendship,
@@ -10,29 +12,78 @@ import {
 import { getUsers } from "../api/users.js";
 
 function Friends() {
-  // 🟢 TEMPORARY current user until login/authentication is added
-  const CURRENT_USER_ID = 3;
+  const navigate = useNavigate();
+
+  const [currentUser, setCurrentUser] = useState(null);
 
   const [friendships, setFriendships] = useState([]);
+
   const [users, setUsers] = useState([]);
+
   const [email, setEmail] = useState("");
 
   const [loading, setLoading] = useState(true);
+
   const [submitting, setSubmitting] = useState(false);
+
   const [error, setError] = useState("");
+
+  // =========================
+  // 🟢 AUTHENTICATED USER
+  // =========================
+
+  function getLoggedInUser() {
+    try {
+      const storedUser = localStorage.getItem("uome-user");
+
+      if (!storedUser) {
+        return null;
+      }
+
+      const user = JSON.parse(storedUser);
+
+      if (!user?.id) {
+        return null;
+      }
+
+      return user;
+    } catch (err) {
+      console.error("Unable to read logged-in user:", err);
+
+      return null;
+    }
+  }
+
+  // =========================
+  // LOAD FRIENDSHIPS
+  // =========================
 
   async function loadFriendships() {
     try {
       setLoading(true);
+
       setError("");
+
+      const user = getLoggedInUser();
+
+      if (!user) {
+        navigate("/login", {
+          replace: true,
+        });
+
+        return;
+      }
+
+      setCurrentUser(user);
 
       const [friendshipData, userData] = await Promise.all([
         getFriendships(),
         getUsers(),
       ]);
 
-      setFriendships(friendshipData);
-      setUsers(userData);
+      setFriendships(Array.isArray(friendshipData) ? friendshipData : []);
+
+      setUsers(Array.isArray(userData) ? userData : []);
     } catch (err) {
       console.error(err);
 
@@ -46,35 +97,86 @@ function Friends() {
     loadFriendships();
   }, []);
 
+  // =========================
+  // SEND FRIEND REQUEST
+  // =========================
+
   async function handleSendRequest(event) {
     event.preventDefault();
 
+    if (!currentUser?.id) {
+      navigate("/login", {
+        replace: true,
+      });
+
+      return;
+    }
+
     if (!email.trim()) {
       setError("Please enter a friend's email.");
+
       return;
     }
 
     try {
       setSubmitting(true);
+
       setError("");
 
+      const normalizedEmail = email.trim().toLowerCase();
+
       const friendUser = users.find(
-        (user) => user.email.toLowerCase() === email.trim().toLowerCase(),
+        (user) => user.email?.toLowerCase() === normalizedEmail,
       );
 
       if (!friendUser) {
         setError("No user was found with that email.");
+
         return;
       }
 
-      if (friendUser.id === CURRENT_USER_ID) {
+      // 🟢 AUTHENTICATED USER
+      if (Number(friendUser.id) === Number(currentUser.id)) {
         setError("You cannot send a friend request to yourself.");
+
         return;
+      }
+
+      const existingFriendship = friendships.find((friendship) => {
+        const sameDirection =
+          Number(friendship.senderId) === Number(currentUser.id) &&
+          Number(friendship.receiverId) === Number(friendUser.id);
+
+        const reverseDirection =
+          Number(friendship.senderId) === Number(friendUser.id) &&
+          Number(friendship.receiverId) === Number(currentUser.id);
+
+        return sameDirection || reverseDirection;
+      });
+
+      if (existingFriendship) {
+        const status = existingFriendship.status?.toLowerCase();
+
+        if (status === "accepted") {
+          setError("You are already friends with this user.");
+
+          return;
+        }
+
+        if (status === "pending") {
+          setError(
+            "A friend request already exists between you and this user.",
+          );
+
+          return;
+        }
       }
 
       await createFriendship({
-        senderId: CURRENT_USER_ID,
-        receiverId: friendUser.id,
+        // 🟢 AUTHENTICATED USER
+        senderId: Number(currentUser.id),
+
+        receiverId: Number(friendUser.id),
       });
 
       setEmail("");
@@ -88,6 +190,10 @@ function Friends() {
       setSubmitting(false);
     }
   }
+
+  // =========================
+  // ACCEPT
+  // =========================
 
   async function handleAccept(id) {
     try {
@@ -105,6 +211,10 @@ function Friends() {
     }
   }
 
+  // =========================
+  // REJECT
+  // =========================
+
   async function handleReject(id) {
     try {
       setError("");
@@ -121,6 +231,10 @@ function Friends() {
     }
   }
 
+  // =========================
+  // REMOVE / CANCEL
+  // =========================
+
   async function handleRemove(id) {
     try {
       setError("");
@@ -135,19 +249,33 @@ function Friends() {
     }
   }
 
+  // =========================
+  // LOADING
+  // =========================
+
   if (loading) {
     return (
       <main className="page friends-page">
         <h1>Friends</h1>
+
         <p>Loading friends...</p>
       </main>
     );
   }
 
+  if (!currentUser) {
+    return null;
+  }
+
+  // =========================
+  // 🟢 CURRENT USER'S
+  // FRIENDSHIPS ONLY
+  // =========================
+
   const myFriendships = friendships.filter(
     (friendship) =>
-      friendship.senderId === CURRENT_USER_ID ||
-      friendship.receiverId === CURRENT_USER_ID,
+      Number(friendship.senderId) === Number(currentUser.id) ||
+      Number(friendship.receiverId) === Number(currentUser.id),
   );
 
   const acceptedFriends = myFriendships.filter(
@@ -157,26 +285,33 @@ function Friends() {
   const pendingRequests = myFriendships.filter(
     (friendship) =>
       friendship.status?.toLowerCase() === "pending" &&
-      friendship.receiverId === CURRENT_USER_ID,
+      Number(friendship.receiverId) === Number(currentUser.id),
   );
 
   const sentRequests = myFriendships.filter(
     (friendship) =>
       friendship.status?.toLowerCase() === "pending" &&
-      friendship.senderId === CURRENT_USER_ID,
+      Number(friendship.senderId) === Number(currentUser.id),
   );
 
+  // =========================
+  // GET THE OTHER USER
+  // =========================
+
   function getFriend(friendship) {
-    if (friendship.senderId === CURRENT_USER_ID) {
+    if (Number(friendship.senderId) === Number(currentUser.id)) {
       return friendship.receiver;
     }
 
     return friendship.sender;
   }
 
+  // =========================
+  // PAGE
+  // =========================
+
   return (
     <main className="page friends-page">
-      {/* 🟢 COMPACT HEADER */}
       <div className="friends-header">
         <div>
           <h1>Friends</h1>
@@ -187,12 +322,16 @@ function Friends() {
 
       {error && <div className="form-error">{error}</div>}
 
-      {/* 🟢 ADD FRIEND + MAIN CONTENT */}
       <div className="friends-main-grid">
+        {/* ========================= */}
+        {/* YOUR FRIENDS */}
+        {/* ========================= */}
+
         <section className="content-section friends-panel friends-list-panel">
           <div className="friends-section-heading">
             <div>
               <h2>Your Friends</h2>
+
               <p>People you've connected with.</p>
             </div>
 
@@ -240,11 +379,18 @@ function Friends() {
           )}
         </section>
 
+        {/* ========================= */}
+        {/* RIGHT COLUMN */}
+        {/* ========================= */}
+
         <div className="friends-side-column">
+          {/* ADD FRIEND */}
+
           <section className="content-section friends-panel add-friend-panel">
             <div className="friends-section-heading">
               <div>
                 <h2>Add a Friend</h2>
+
                 <p>Send a request using their email.</p>
               </div>
             </div>
@@ -257,7 +403,14 @@ function Friends() {
                 type="email"
                 placeholder="Friend's email"
                 value={email}
-                onChange={(event) => setEmail(event.target.value)}
+                disabled={submitting}
+                onChange={(event) => {
+                  setEmail(event.target.value);
+
+                  if (error) {
+                    setError("");
+                  }
+                }}
               />
 
               <button type="submit" className="button" disabled={submitting}>
@@ -266,10 +419,15 @@ function Friends() {
             </form>
           </section>
 
+          {/* ========================= */}
+          {/* PENDING REQUESTS */}
+          {/* ========================= */}
+
           <section className="content-section friends-panel">
             <div className="friends-section-heading">
               <div>
                 <h2>Pending Requests</h2>
+
                 <p>Requests waiting for your response.</p>
               </div>
 
@@ -324,10 +482,15 @@ function Friends() {
             )}
           </section>
 
+          {/* ========================= */}
+          {/* SENT REQUESTS */}
+          {/* ========================= */}
+
           <section className="content-section friends-panel">
             <div className="friends-section-heading">
               <div>
                 <h2>Sent Requests</h2>
+
                 <p>Requests that are still waiting.</p>
               </div>
 

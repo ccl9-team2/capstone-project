@@ -11,6 +11,7 @@ import {
 const router = express.Router();
 
 router.get("/", getComments);
+
 router.get("/:id", getCommentById);
 
 router.post("/", createComment);

@@ -1,59 +1,120 @@
 import { Link, NavLink } from "react-router-dom";
 
+import { useEffect, useState } from "react";
+
 function Navbar() {
+  const [darkMode, setDarkMode] = useState(() => {
+    return localStorage.getItem("uome-theme") === "dark";
+  });
+
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    document.documentElement.setAttribute(
+      "data-theme",
+      darkMode ? "dark" : "light",
+    );
+
+    localStorage.setItem("uome-theme", darkMode ? "dark" : "light");
+  }, [darkMode]);
+
+  function getNavLinkClass({ isActive }) {
+    return isActive ? "nav-link active" : "nav-link";
+  }
+
+  function closeMenu() {
+    setMenuOpen(false);
+  }
+
+  function toggleTheme() {
+    setDarkMode((current) => !current);
+  }
+
   return (
-    <nav className="navbar">
-      <Link to="/dashboard" className="brand">
-        UOME
-      </Link>
+    <header className="app-header">
+      <nav className="navbar" aria-label="Main navigation">
+        {/* ========================= */}
+        {/* 🟢 BRAND */}
+        {/* ========================= */}
 
-      <div className="navbar-links">
-        <NavLink
-          to="/dashboard"
-          className={({ isActive }) =>
-            isActive ? "nav-link active" : "nav-link"
-          }
-        >
-          Dashboard
-        </NavLink>
+        <Link to="/dashboard" className="brand" onClick={closeMenu}>
+          UOME
+        </Link>
 
-        <NavLink
-          to="/groups"
-          className={({ isActive }) =>
-            isActive ? "nav-link active" : "nav-link"
-          }
-        >
-          Groups
-        </NavLink>
+        {/* ========================= */}
+        {/* 🟢 NAVIGATION LINKS */}
+        {/* ========================= */}
 
-        <NavLink
-          to="/friends"
-          className={({ isActive }) =>
-            isActive ? "nav-link active" : "nav-link"
-          }
-        >
-          Friends
-        </NavLink>
+        <div className={menuOpen ? "navbar-links open" : "navbar-links"}>
+          <NavLink
+            to="/dashboard"
+            className={getNavLinkClass}
+            onClick={closeMenu}
+          >
+            Dashboard
+          </NavLink>
 
-        <NavLink
-          to="/notifications"
-          className={({ isActive }) =>
-            isActive ? "nav-link active" : "nav-link"
-          }
-        >
-          Notifications
-        </NavLink>
+          <NavLink to="/groups" className={getNavLinkClass} onClick={closeMenu}>
+            Groups
+          </NavLink>
 
-        <NavLink
-          to="/join-group"
-          className={({ isActive }) =>
-            isActive ? "nav-link active" : "nav-link"
-          }
-        >
-          Join Group
-        </NavLink>
-      </div>
-    </nav>
+          <NavLink
+            to="/friends"
+            className={getNavLinkClass}
+            onClick={closeMenu}
+          >
+            Friends
+          </NavLink>
+
+          <NavLink
+            to="/notifications"
+            className={getNavLinkClass}
+            onClick={closeMenu}
+          >
+            Notifications
+          </NavLink>
+
+          <NavLink
+            to="/join-group"
+            className={getNavLinkClass}
+            onClick={closeMenu}
+          >
+            Join Group
+          </NavLink>
+
+          <NavLink to="/login" className={getNavLinkClass} onClick={closeMenu}>
+            Login
+          </NavLink>
+        </div>
+
+        {/* ========================= */}
+        {/* 🟢 MOBILE CONTROLS */}
+        {/* ========================= */}
+
+        <div className="navbar-controls">
+          <button
+            type="button"
+            className="theme-toggle mobile-theme-toggle"
+            onClick={toggleTheme}
+            aria-label={
+              darkMode ? "Switch to light mode" : "Switch to dark mode"
+            }
+          >
+            {darkMode ? "☀ Light" : "☾ Dark"}
+          </button>
+
+          <button
+            type="button"
+            className="mobile-menu-button"
+            onClick={() => setMenuOpen((current) => !current)}
+            aria-expanded={menuOpen}
+            aria-label="Toggle navigation"
+          >
+            ☰
+          </button>
+        </div>
+      </nav>
+    </header>
   );
 }
 

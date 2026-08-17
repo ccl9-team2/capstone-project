@@ -1,5 +1,9 @@
+import bcrypt from "bcryptjs";
+
 import prisma from "../db/prisma.js";
+
 import { success, failure } from "../utils/apiResponse.js";
+
 import { requireFields } from "../utils/validators.js";
 
 /**
@@ -13,6 +17,7 @@ export async function getUsers(req, res, next) {
         name: true,
         email: true,
       },
+
       orderBy: {
         id: "asc",
       },
@@ -32,7 +37,10 @@ export async function getUserById(req, res, next) {
     const id = Number(req.params.id);
 
     const user = await prisma.user.findUnique({
-      where: { id },
+      where: {
+        id,
+      },
+
       select: {
         id: true,
         name: true,
@@ -57,22 +65,38 @@ export async function createUser(req, res, next) {
   try {
     requireFields(req.body, ["name", "email", "password"]);
 
-    const { name, email, password } = req.body;
+    const name = String(req.body.name).trim();
+
+    const email = String(req.body.email).trim().toLowerCase();
+
+    const password = String(req.body.password);
+
+    if (password.length < 6) {
+      return failure(res, "Password must be at least 6 characters.", 400);
+    }
 
     const existing = await prisma.user.findUnique({
-      where: { email },
+      where: {
+        email,
+      },
     });
 
     if (existing) {
       return failure(res, "Email already exists.", 409);
     }
 
+    // 🟢 CHANGED
+    // Never store a new password as plain text.
+    const hashedPassword = await bcrypt.hash(password, 12);
+
     const user = await prisma.user.create({
       data: {
         name,
         email,
-        password,
+
+        password: hashedPassword,
       },
+
       select: {
         id: true,
         name: true,
@@ -94,7 +118,9 @@ export async function updateUser(req, res, next) {
     const id = Number(req.params.id);
 
     const existing = await prisma.user.findUnique({
-      where: { id },
+      where: {
+        id,
+      },
     });
 
     if (!existing) {
@@ -102,11 +128,18 @@ export async function updateUser(req, res, next) {
     }
 
     const updated = await prisma.user.update({
-      where: { id },
+      where: {
+        id,
+      },
+
       data: {
         name: req.body.name,
-        email: req.body.email,
+
+        email: req.body.email
+          ? String(req.body.email).trim().toLowerCase()
+          : undefined,
       },
+
       select: {
         id: true,
         name: true,
@@ -128,7 +161,9 @@ export async function deleteUser(req, res, next) {
     const id = Number(req.params.id);
 
     const existing = await prisma.user.findUnique({
-      where: { id },
+      where: {
+        id,
+      },
     });
 
     if (!existing) {
@@ -136,7 +171,9 @@ export async function deleteUser(req, res, next) {
     }
 
     await prisma.user.delete({
-      where: { id },
+      where: {
+        id,
+      },
     });
 
     success(res, {
@@ -150,16 +187,22 @@ export async function deleteUser(req, res, next) {
 /**
  * GET /api/users/:id/balances
  *
- * Returns how much a user owes others, and how
- * much others owe them, based on unsettled splits.
+ * Returns how much a user owes others,
+ * and how much others owe them.
  */
 export async function getUserBalances(req, res, next) {
   try {
     const userId = Number(req.params.id);
 
     const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { id: true, name: true },
+      where: {
+        id: userId,
+      },
+
+      select: {
+        id: true,
+        name: true,
+      },
     });
 
     if (!user) {
@@ -169,15 +212,29 @@ export async function getUserBalances(req, res, next) {
     const owedByUser = await prisma.expenseSplit.findMany({
       where: {
         userId,
+
         settled: false,
-        expense: { createdById: { not: userId } },
+
+        expense: {
+          createdById: {
+            not: userId,
+          },
+        },
       },
+
       include: {
         expense: {
           select: {
             id: true,
+
             description: true,
-            createdBy: { select: { id: true, name: true } },
+
+            createdBy: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
           },
         },
       },
@@ -186,42 +243,74 @@ export async function getUserBalances(req, res, next) {
     const owedToUser = await prisma.expenseSplit.findMany({
       where: {
         settled: false,
-        userId: { not: userId },
-        expense: { createdById: userId },
+
+        userId: {
+          not: userId,
+        },
+
+        expense: {
+          createdById: userId,
+        },
       },
+
       include: {
-        expense: { select: { id: true, description: true } },
-        user: { select: { id: true, name: true } },
+        expense: {
+          select: {
+            id: true,
+            description: true,
+          },
+        },
+
+        user: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
       },
     });
 
     const totalYouOwe = owedByUser.reduce(
-      (sum, s) => sum + Number(s.amountOwed),
+      (sum, split) => sum + Number(split.amountOwed),
       0,
     );
+
     const totalYouAreOwed = owedToUser.reduce(
-      (sum, s) => sum + Number(s.amountOwed),
+      (sum, split) => sum + Number(split.amountOwed),
       0,
     );
 
     success(res, {
       user,
+
       totalYouOwe,
+
       totalYouAreOwed,
+
       netBalance: totalYouAreOwed - totalYouOwe,
-      youOwe: owedByUser.map((s) => ({
-        splitId: s.id,
-        expenseId: s.expense.id,
-        description: s.expense.description,
-        owedTo: s.expense.createdBy,
-        amount: Number(s.amountOwed),
+
+      youOwe: owedByUser.map((split) => ({
+        splitId: split.id,
+
+        expenseId: split.expense.id,
+
+        description: split.expense.description,
+
+        owedTo: split.expense.createdBy,
+
+        amount: Number(split.amountOwed),
       })),
-      owedToYou: owedToUser.map((s) => ({
-        splitId: s.id,
-        expenseId: s.expense.id,
-        description: s.expense.description,
-        owedBy: s.user,
-        amount: Number(s.amountOwed),
+
+      owedToYou: owedToUser.map((split) => ({
+        splitId: split.id,
+
+        expenseId: split.expense.id,
+
+        description: split.expense.description,
+
+        owedBy: split.user,
+
+        amount: Number(split.amountOwed),
       })),
     });
   } catch (error) {

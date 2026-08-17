@@ -2,25 +2,33 @@ import { Link } from "react-router-dom";
 
 function GroupCard({ group }) {
   const memberCount = group.members?.length ?? 0;
+
   const expenseCount = group.expenses?.length ?? 0;
 
   return (
-    <article className="group-card">
+    <article className="group-card professional-group-card">
       <div className="group-card-content">
         <h3>{group.name}</h3>
 
-        <p>
-          {memberCount} {memberCount === 1 ? "member" : "members"}
-        </p>
+        <div className="group-card-meta">
+          <span>
+            {memberCount} {memberCount === 1 ? "member" : "members"}
+          </span>
 
-        <p>
-          {expenseCount} {expenseCount === 1 ? "expense" : "expenses"}
-        </p>
+          <span>
+            {expenseCount} {expenseCount === 1 ? "expense" : "expenses"}
+          </span>
+        </div>
       </div>
 
-      <Link to={`/groups/${group.id}`} className="button">
-        View Group
-      </Link>
+      <div className="group-card-footer">
+        <Link
+          to={`/groups/${group.id}`}
+          className="secondary-button group-card-view-button"
+        >
+          View Group
+        </Link>
+      </div>
     </article>
   );
 }

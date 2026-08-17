@@ -4,10 +4,21 @@ import { requireFields } from "../utils/validators.js";
 
 /**
  * GET /api/comments
+ *
+ * Optional:
+ * GET /api/comments?expenseId=1
  */
 export async function getComments(req, res, next) {
   try {
+    const expenseId = req.query.expenseId ? Number(req.query.expenseId) : null;
+
     const comments = await prisma.comment.findMany({
+      where: expenseId
+        ? {
+            expenseId,
+          }
+        : undefined,
+
       include: {
         user: {
           select: {
@@ -15,6 +26,7 @@ export async function getComments(req, res, next) {
             name: true,
           },
         },
+
         expense: {
           select: {
             id: true,
@@ -22,6 +34,7 @@ export async function getComments(req, res, next) {
           },
         },
       },
+
       orderBy: {
         createdAt: "desc",
       },
@@ -41,7 +54,10 @@ export async function getCommentById(req, res, next) {
     const id = Number(req.params.id);
 
     const comment = await prisma.comment.findUnique({
-      where: { id },
+      where: {
+        id,
+      },
+
       include: {
         user: {
           select: {
@@ -49,6 +65,7 @@ export async function getCommentById(req, res, next) {
             name: true,
           },
         },
+
         expense: {
           select: {
             id: true,
@@ -75,11 +92,19 @@ export async function createComment(req, res, next) {
   try {
     requireFields(req.body, ["expenseId", "userId", "text"]);
 
-    const { expenseId, userId, text } = req.body;
+    const expenseId = Number(req.body.expenseId);
+
+    const userId = Number(req.body.userId);
+
+    const text = req.body.text?.trim();
+
+    if (!text) {
+      return failure(res, "Comment text is required.", 400);
+    }
 
     const expense = await prisma.expense.findUnique({
       where: {
-        id: Number(expenseId),
+        id: expenseId,
       },
     });
 
@@ -89,7 +114,7 @@ export async function createComment(req, res, next) {
 
     const user = await prisma.user.findUnique({
       where: {
-        id: Number(userId),
+        id: userId,
       },
     });
 
@@ -99,10 +124,11 @@ export async function createComment(req, res, next) {
 
     const comment = await prisma.comment.create({
       data: {
-        expenseId: Number(expenseId),
-        userId: Number(userId),
+        expenseId,
+        userId,
         text,
       },
+
       include: {
         user: {
           select: {
@@ -110,6 +136,7 @@ export async function createComment(req, res, next) {
             name: true,
           },
         },
+
         expense: {
           select: {
             id: true,
@@ -127,28 +154,52 @@ export async function createComment(req, res, next) {
 
 /**
  * PUT /api/comments/:id
+ *
+ * TEMPORARY:
+ * userId is sent in the request body until
+ * authentication/login is implemented.
  */
 export async function updateComment(req, res, next) {
   try {
     const id = Number(req.params.id);
 
-    if (!req.body.text) {
-      return failure(res, "Text is required.", 400);
+    const userId = Number(req.body.userId);
+
+    const text = req.body.text?.trim();
+
+    if (!userId) {
+      return failure(res, "User ID is required.", 400);
+    }
+
+    if (!text) {
+      return failure(res, "Comment text is required.", 400);
     }
 
     const existing = await prisma.comment.findUnique({
-      where: { id },
+      where: {
+        id,
+      },
     });
 
     if (!existing) {
       return failure(res, "Comment not found.", 404);
     }
 
+    // 🟢 Only the person who wrote the
+    // comment can edit it.
+    if (Number(existing.userId) !== userId) {
+      return failure(res, "You can only edit your own comments.", 403);
+    }
+
     const updated = await prisma.comment.update({
-      where: { id },
-      data: {
-        text: req.body.text,
+      where: {
+        id,
       },
+
+      data: {
+        text,
+      },
+
       include: {
         user: {
           select: {
@@ -156,6 +207,7 @@ export async function updateComment(req, res, next) {
             name: true,
           },
         },
+
         expense: {
           select: {
             id: true,
@@ -173,21 +225,43 @@ export async function updateComment(req, res, next) {
 
 /**
  * DELETE /api/comments/:id
+ *
+ * TEMPORARY:
+ * userId is supplied through the query string
+ * until authentication/login is implemented.
+ *
+ * DELETE /api/comments/:id?userId=3
  */
 export async function deleteComment(req, res, next) {
   try {
     const id = Number(req.params.id);
 
+    const userId = Number(req.query.userId);
+
+    if (!userId) {
+      return failure(res, "User ID is required.", 400);
+    }
+
     const existing = await prisma.comment.findUnique({
-      where: { id },
+      where: {
+        id,
+      },
     });
 
     if (!existing) {
       return failure(res, "Comment not found.", 404);
     }
 
+    // 🟢 Only the person who wrote the
+    // comment can delete it.
+    if (Number(existing.userId) !== userId) {
+      return failure(res, "You can only delete your own comments.", 403);
+    }
+
     await prisma.comment.delete({
-      where: { id },
+      where: {
+        id,
+      },
     });
 
     success(res, {
