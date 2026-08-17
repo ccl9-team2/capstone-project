@@ -1,8 +1,10 @@
 import { useState } from "react";
+
 import { createPayment } from "../api/payments.js";
 
 function RecordPayment({ split, expense, onPaymentRecorded, onCancel }) {
   const [submitting, setSubmitting] = useState(false);
+
   const [error, setError] = useState("");
 
   const amount = Number(split.amountOwed);
@@ -22,11 +24,13 @@ function RecordPayment({ split, expense, onPaymentRecorded, onCancel }) {
 
     if (!fromUserId) {
       setError("Could not determine who owes this payment.");
+
       return;
     }
 
     if (!toUserId) {
       setError("Could not determine who should receive this payment.");
+
       return;
     }
 
@@ -35,8 +39,11 @@ function RecordPayment({ split, expense, onPaymentRecorded, onCancel }) {
 
       const paymentData = {
         expenseSplitId: Number(split.id),
+
         fromUserId: Number(fromUserId),
+
         toUserId: Number(toUserId),
+
         amount,
       };
 
@@ -55,12 +62,17 @@ function RecordPayment({ split, expense, onPaymentRecorded, onCancel }) {
   return (
     <div className="payment-modal">
       <div className="payment-modal-content">
-        <div className="form-header">
+        {/* ========================= */}
+        {/* HEADER */}
+        {/* ========================= */}
+
+        <div className="payment-modal-header">
           <div>
             <h2>Record Payment</h2>
 
             <p>
-              Record that {fromUserName} paid {toUserName}.
+              Record that <strong>{fromUserName}</strong> paid{" "}
+              <strong>{toUserName}</strong>.
             </p>
           </div>
 
@@ -74,33 +86,50 @@ function RecordPayment({ split, expense, onPaymentRecorded, onCancel }) {
           </button>
         </div>
 
+        {/* ========================= */}
+        {/* ERROR */}
+        {/* ========================= */}
+
         {error && <div className="form-error">{error}</div>}
 
+        {/* ========================= */}
+        {/* PAYMENT SUMMARY */}
+        {/* ========================= */}
+
         <div className="payment-summary">
-          <div>
+          <div className="payment-summary-item">
             <span>From</span>
+
             <strong>{fromUserName}</strong>
           </div>
 
-          <div>
+          <div className="payment-summary-item">
             <span>To</span>
+
             <strong>{toUserName}</strong>
           </div>
 
-          <div>
+          <div className="payment-summary-item">
             <span>Amount</span>
+
             <strong>${amount.toFixed(2)}</strong>
           </div>
         </div>
 
-        <button
-          type="submit"
-          className="button"
-          onClick={handleSubmit}
-          disabled={submitting}
-        >
-          {submitting ? "Recording..." : "Confirm Payment"}
-        </button>
+        {/* ========================= */}
+        {/* ACTIONS */}
+        {/* ========================= */}
+
+        <div className="payment-modal-actions">
+          <button
+            type="button"
+            className="button"
+            onClick={handleSubmit}
+            disabled={submitting}
+          >
+            {submitting ? "Recording..." : "Confirm Payment"}
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -1,10 +1,37 @@
 import prisma from "../db/prisma.js";
 import { success, failure } from "../utils/apiResponse.js";
 import { requireFields } from "../utils/validators.js";
-import {
-  calculateEqualSplit,
-  validateCustomSplits,
-} from "../utils/splitCalculator.js";
+import { validateCustomSplits } from "../utils/splitCalculator.js";
+
+/*
+ * 🟢 NEW
+ * Splits an expense using cents instead of repeatedly
+ * rounding the same dollar amount.
+ *
+ * Example:
+ * $80.00 / 3 = $26.67, $26.67, $26.66
+ *
+ * Total = exactly $80.00
+ */
+function calculateEqualSplitAmounts(amount, count) {
+  if (!Number.isInteger(count) || count <= 0) {
+    throw new Error(
+      "At least one group member is required to split an expense.",
+    );
+  }
+
+  const totalCents = Math.round(Number(amount) * 100);
+
+  const baseShareCents = Math.floor(totalCents / count);
+
+  const remainderCents = totalCents % count;
+
+  return Array.from({ length: count }, (_, index) => {
+    const shareCents = baseShareCents + (index < remainderCents ? 1 : 0);
+
+    return shareCents / 100;
+  });
+}
 
 /**
  * GET /api/expenses
@@ -19,7 +46,9 @@ export async function getExpenses(req, res, next) {
             name: true,
           },
         },
+
         group: true,
+
         splits: {
           include: {
             user: {
@@ -31,6 +60,7 @@ export async function getExpenses(req, res, next) {
           },
         },
       },
+
       orderBy: {
         expenseDate: "desc",
       },
@@ -50,15 +80,21 @@ export async function getExpenseById(req, res, next) {
     const id = Number(req.params.id);
 
     const expense = await prisma.expense.findUnique({
-      where: { id },
+      where: {
+        id,
+      },
+
       include: {
         createdBy: true,
+
         group: true,
+
         splits: {
           include: {
             user: true,
           },
         },
+
         comments: {
           include: {
             user: true,
@@ -95,12 +131,18 @@ export async function createExpense(req, res, next) {
       const newExpense = await tx.expense.create({
         data: {
           description,
+
           amount: Number(amount),
+
           groupId: Number(groupId),
+
           createdById: Number(createdById),
         },
       });
 
+      /*
+       * CUSTOM SPLIT
+       */
       if (splits && splits.length > 0) {
         if (!validateCustomSplits(amount, splits)) {
           throw new Error("Split amounts must equal total expense.");
@@ -109,25 +151,54 @@ export async function createExpense(req, res, next) {
         await tx.expenseSplit.createMany({
           data: splits.map((split) => ({
             expenseId: newExpense.id,
-            userId: split.userId,
-            amountOwed: split.amount,
+
+            userId: Number(split.userId),
+
+            amountOwed: Number(split.amount),
+
             settled: false,
           })),
         });
       } else {
+        /*
+         * 🟢 CHANGED
+         * Get all group members in a
+         * consistent order.
+         */
         const members = await tx.groupMember.findMany({
           where: {
             groupId: Number(groupId),
           },
+
+          orderBy: {
+            id: "asc",
+          },
         });
 
-        const share = calculateEqualSplit(Number(amount), members.length);
+        if (members.length === 0) {
+          throw new Error(
+            "This group has no members to split the expense between.",
+          );
+        }
+
+        /*
+         * 🟢 CHANGED
+         * Calculate an exact amount
+         * for EACH member.
+         */
+        const splitAmounts = calculateEqualSplitAmounts(
+          Number(amount),
+          members.length,
+        );
 
         await tx.expenseSplit.createMany({
-          data: members.map((member) => ({
+          data: members.map((member, index) => ({
             expenseId: newExpense.id,
+
             userId: member.userId,
-            amountOwed: share,
+
+            amountOwed: splitAmounts[index],
+
             settled: false,
           })),
         });
@@ -137,13 +208,16 @@ export async function createExpense(req, res, next) {
         where: {
           id: newExpense.id,
         },
+
         include: {
           splits: {
             include: {
               user: true,
             },
           },
+
           createdBy: true,
+
           group: true,
         },
       });
@@ -163,7 +237,9 @@ export async function updateExpense(req, res, next) {
     const id = Number(req.params.id);
 
     const existing = await prisma.expense.findUnique({
-      where: { id },
+      where: {
+        id,
+      },
     });
 
     if (!existing) {
@@ -173,34 +249,76 @@ export async function updateExpense(req, res, next) {
     requireFields(req.body, ["description", "amount"]);
 
     const updatedExpense = await prisma.$transaction(async (tx) => {
-      const updated = await tx.expense.update({
-        where: { id },
+      await tx.expense.update({
+        where: {
+          id,
+        },
+
         data: {
           description: req.body.description,
+
           amount: Number(req.body.amount),
         },
       });
 
+      /*
+       * 🟢 CHANGED
+       * Retrieve the existing splits
+       * in a consistent order.
+       */
       const splits = await tx.expenseSplit.findMany({
         where: {
           expenseId: id,
         },
+
+        orderBy: {
+          id: "asc",
+        },
       });
 
-      const share = calculateEqualSplit(Number(req.body.amount), splits.length);
+      if (splits.length === 0) {
+        throw new Error("This expense has no splits to update.");
+      }
 
-      for (const split of splits) {
+      /*
+       * 🟢 CHANGED
+       * Recalculate the individual
+       * shares using cents.
+       */
+      const splitAmounts = calculateEqualSplitAmounts(
+        Number(req.body.amount),
+        splits.length,
+      );
+
+      for (let index = 0; index < splits.length; index += 1) {
         await tx.expenseSplit.update({
           where: {
-            id: split.id,
+            id: splits[index].id,
           },
+
           data: {
-            amountOwed: share,
+            amountOwed: splitAmounts[index],
           },
         });
       }
 
-      return updated;
+      return tx.expense.findUnique({
+        where: {
+          id,
+        },
+
+        include: {
+          splits: {
+            include: {
+              user: true,
+            },
+          },
+
+          createdBy: true,
+
+          group: true,
+        },
+      });
     });
 
     success(res, updatedExpense);
@@ -217,7 +335,9 @@ export async function deleteExpense(req, res, next) {
     const id = Number(req.params.id);
 
     const existing = await prisma.expense.findUnique({
-      where: { id },
+      where: {
+        id,
+      },
     });
 
     if (!existing) {

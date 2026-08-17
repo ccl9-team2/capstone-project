@@ -1,7 +1,19 @@
 const API_URL = "http://localhost:3001/api";
 
-export async function getNotifications() {
-  const response = await fetch(`${API_URL}/notifications`);
+export async function getNotifications(userId) {
+  const params = new URLSearchParams();
+
+  if (userId) {
+    params.set("userId", String(userId));
+  }
+
+  const queryString = params.toString();
+
+  const url = queryString
+    ? `${API_URL}/notifications?${queryString}`
+    : `${API_URL}/notifications`;
+
+  const response = await fetch(url);
 
   const result = await response.json();
 
@@ -12,8 +24,6 @@ export async function getNotifications() {
   return result.data;
 }
 
-// 🟢 CHANGED
-// Backend route is PATCH /notifications/:id/read
 export async function markNotificationAsRead(id) {
   const response = await fetch(`${API_URL}/notifications/${id}/read`, {
     method: "PATCH",

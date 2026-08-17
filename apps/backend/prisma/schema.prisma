@@ -7,154 +7,108 @@ datasource db {
 }
 
 model User {
-  id             Int             @id @default(autoincrement())
-  name           String
-  email          String          @unique
-  password       String
-  createdAt      DateTime        @default(now())
-
-  groupsCreated  Group[]         @relation("GroupCreator")
-  groupMembers   GroupMember[]
-
-  expensesCreated Expense[]      @relation("ExpenseCreator")
-
-  expenseSplits  ExpenseSplit[]
-
-  paymentsSent   Payment[]       @relation("PaymentSender")
-  paymentsReceived Payment[]     @relation("PaymentReceiver")
-
-  comments       Comment[]
-
-  notifications  Notification[]
-
-  friendshipsSent     Friendship[] @relation("FriendshipSender")
-  friendshipsReceived Friendship[] @relation("FriendshipReceiver")
+  id                  Int            @id @default(autoincrement())
+  name                String
+  email               String         @unique
+  password            String
+  createdAt           DateTime       @default(now())
+  comments            Comment[]
+  expensesCreated     Expense[]      @relation("ExpenseCreator")
+  expenseSplits       ExpenseSplit[]
+  friendshipsReceived Friendship[]   @relation("FriendshipReceiver")
+  friendshipsSent     Friendship[]   @relation("FriendshipSender")
+  groupsCreated       Group[]        @relation("GroupCreator")
+  groupMembers        GroupMember[]
+  notifications       Notification[]
+  paymentsSent        Payment[]      @relation("PaymentSender")
+  paymentsReceived    Payment[]      @relation("PaymentReceiver")
 }
 
 model Group {
-  id          Int      @id @default(autoincrement())
+  id          Int           @id @default(autoincrement())
   name        String
-  createdAt   DateTime @default(now())
-
+  createdAt   DateTime      @default(now())
   createdById Int
-  createdBy   User @relation("GroupCreator", fields: [createdById], references: [id])
-
-  members     GroupMember[]
-
   expenses    Expense[]
+  createdBy   User          @relation("GroupCreator", fields: [createdById], references: [id])
+  members     GroupMember[]
 }
 
 model GroupMember {
-  id        Int @id @default(autoincrement())
-
-  groupId   Int
-  userId    Int
-
-  joinedAt  DateTime @default(now())
-
-  group      Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  user       User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id       Int      @id @default(autoincrement())
+  groupId  Int
+  userId   Int
+  joinedAt DateTime @default(now())
+  group    Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([groupId, userId])
 }
 
 model Expense {
-  id          Int      @id @default(autoincrement())
+  id          Int            @id @default(autoincrement())
   description String
-  amount      Decimal  @db.Decimal(10,2)
-
-  expenseDate DateTime @default(now())
-
+  amount      Decimal        @db.Decimal(10, 2)
+  expenseDate DateTime       @default(now())
   groupId     Int
   createdById Int
-
-  group       Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
-
-  createdBy   User @relation("ExpenseCreator", fields: [createdById], references: [id])
-
-  splits      ExpenseSplit[]
-
   comments    Comment[]
+  createdBy   User           @relation("ExpenseCreator", fields: [createdById], references: [id])
+  group       Group          @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  splits      ExpenseSplit[]
 }
 
 model ExpenseSplit {
-  id           Int @id @default(autoincrement())
-
-  expenseId    Int
-  userId       Int
-
-  amountOwed   Decimal @db.Decimal(10,2)
-
-  settled      Boolean @default(false)
-
-  expense      Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
-
-  user         User @relation(fields: [userId], references: [id])
-
-  payments     Payment[]
+  id         Int       @id @default(autoincrement())
+  expenseId  Int
+  userId     Int
+  amountOwed Decimal   @db.Decimal(10, 2)
+  settled    Boolean   @default(false)
+  expense    Expense   @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  user       User      @relation(fields: [userId], references: [id])
+  payments   Payment[]
 }
 
 model Payment {
-  id              Int @id @default(autoincrement())
-
-  expenseSplitId  Int
-
-  fromUserId      Int
-  toUserId        Int
-
-  amount          Decimal @db.Decimal(10,2)
-
-  paymentDate     DateTime @default(now())
-
-  expenseSplit ExpenseSplit @relation(fields: [expenseSplitId], references: [id])
-
-  fromUser User @relation("PaymentSender", fields: [fromUserId], references: [id])
-
-  toUser User @relation("PaymentReceiver", fields: [toUserId], references: [id])
+  id             Int          @id @default(autoincrement())
+  expenseSplitId Int
+  fromUserId     Int
+  toUserId       Int
+  amount         Decimal      @db.Decimal(10, 2)
+  paymentDate    DateTime     @default(now())
+  expenseSplit   ExpenseSplit @relation(fields: [expenseSplitId], references: [id])
+  fromUser       User         @relation("PaymentSender", fields: [fromUserId], references: [id])
+  toUser         User         @relation("PaymentReceiver", fields: [toUserId], references: [id])
 }
 
 model Comment {
-  id          Int @id @default(autoincrement())
-
-  text        String
-
-  createdAt   DateTime @default(now())
-
-  expenseId   Int
-  userId      Int
-
-  expense Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
-
-  user User @relation(fields: [userId], references: [id])
+  id        Int      @id @default(autoincrement())
+  text      String
+  createdAt DateTime @default(now())
+  expenseId Int
+  userId    Int
+  updatedAt DateTime @updatedAt
+  expense   Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
 }
 
 model Notification {
-  id        Int @id @default(autoincrement())
-
+  id        Int      @id @default(autoincrement())
   message   String
-
-  isRead    Boolean @default(false)
-
+  isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
-
   userId    Int
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Friendship {
-  id        Int @id @default(autoincrement())
-
-  senderId  Int
+  id         Int      @id @default(autoincrement())
+  senderId   Int
   receiverId Int
-
-  status    String
-
-  createdAt DateTime @default(now())
-
-  sender User @relation("FriendshipSender", fields: [senderId], references: [id])
-
-  receiver User @relation("FriendshipReceiver", fields: [receiverId], references: [id])
+  status     String
+  createdAt  DateTime @default(now())
+  receiver   User     @relation("FriendshipReceiver", fields: [receiverId], references: [id])
+  sender     User     @relation("FriendshipSender", fields: [senderId], references: [id])
 
   @@unique([senderId, receiverId])
 }

@@ -16,6 +16,7 @@ export async function getGroups(req, res, next) {
             email: true,
           },
         },
+
         members: {
           include: {
             user: {
@@ -27,7 +28,19 @@ export async function getGroups(req, res, next) {
             },
           },
         },
+
+        // 🟢 NEW
+        // Include expenses so GroupCard can show
+        // the correct expense count.
+        expenses: {
+          select: {
+            id: true,
+            description: true,
+            amount: true,
+          },
+        },
       },
+
       orderBy: {
         id: "asc",
       },
@@ -47,14 +60,19 @@ export async function getGroupById(req, res, next) {
     const id = Number(req.params.id);
 
     const group = await prisma.group.findUnique({
-      where: { id },
+      where: {
+        id,
+      },
+
       include: {
         createdBy: true,
+
         members: {
           include: {
             user: true,
           },
         },
+
         expenses: true,
       },
     });
@@ -89,6 +107,7 @@ export async function createGroup(req, res, next) {
       await tx.groupMember.create({
         data: {
           groupId: newGroup.id,
+
           userId: Number(createdById),
         },
       });
@@ -110,7 +129,9 @@ export async function updateGroup(req, res, next) {
     const id = Number(req.params.id);
 
     const existing = await prisma.group.findUnique({
-      where: { id },
+      where: {
+        id,
+      },
     });
 
     if (!existing) {
@@ -118,7 +139,10 @@ export async function updateGroup(req, res, next) {
     }
 
     const updated = await prisma.group.update({
-      where: { id },
+      where: {
+        id,
+      },
+
       data: {
         name: req.body.name,
       },
@@ -138,7 +162,9 @@ export async function deleteGroup(req, res, next) {
     const id = Number(req.params.id);
 
     const existing = await prisma.group.findUnique({
-      where: { id },
+      where: {
+        id,
+      },
     });
 
     if (!existing) {
@@ -176,8 +202,7 @@ export async function deleteGroup(req, res, next) {
 }
 
 /**
- * 🟢 NEW
- * GET /api/groups/:id/qr-code
+ * 🟢 GET /api/groups/:id/qr-code
  *
  * Returns a join code for a group.
  * For now we use GROUP-{id} so existing groups
@@ -192,7 +217,10 @@ export async function getGroupQRCode(req, res, next) {
     }
 
     const group = await prisma.group.findUnique({
-      where: { id },
+      where: {
+        id,
+      },
+
       select: {
         id: true,
         name: true,
@@ -217,8 +245,7 @@ export async function getGroupQRCode(req, res, next) {
 }
 
 /**
- * 🟢 NEW
- * POST /api/groups/join/:code
+ * 🟢 POST /api/groups/join/:code
  *
  * Adds a user to a group using a join code
  * such as GROUP-4.
@@ -253,6 +280,7 @@ export async function joinGroupWithCode(req, res, next) {
       where: {
         id: groupId,
       },
+
       include: {
         createdBy: {
           select: {
@@ -261,6 +289,7 @@ export async function joinGroupWithCode(req, res, next) {
             email: true,
           },
         },
+
         members: {
           include: {
             user: {
@@ -270,6 +299,16 @@ export async function joinGroupWithCode(req, res, next) {
                 email: true,
               },
             },
+          },
+        },
+
+        // 🟢 NEW
+        // Keep returned group data consistent.
+        expenses: {
+          select: {
+            id: true,
+            description: true,
+            amount: true,
           },
         },
       },
@@ -283,6 +322,7 @@ export async function joinGroupWithCode(req, res, next) {
       where: {
         id: userId,
       },
+
       select: {
         id: true,
         name: true,
@@ -318,6 +358,7 @@ export async function joinGroupWithCode(req, res, next) {
       where: {
         id: groupId,
       },
+
       include: {
         createdBy: {
           select: {
@@ -326,6 +367,7 @@ export async function joinGroupWithCode(req, res, next) {
             email: true,
           },
         },
+
         members: {
           include: {
             user: {
@@ -335,6 +377,15 @@ export async function joinGroupWithCode(req, res, next) {
                 email: true,
               },
             },
+          },
+        },
+
+        // 🟢 NEW
+        expenses: {
+          select: {
+            id: true,
+            description: true,
+            amount: true,
           },
         },
       },
