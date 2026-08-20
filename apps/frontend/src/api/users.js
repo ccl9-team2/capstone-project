@@ -38,8 +38,6 @@ export async function getUserBalances(userId) {
 // GET ALL USERS
 // =========================
 
-// 🟢 Gets all users so we can find
-// a friend by email.
 export async function getUsers() {
   const response = await fetch(`${API_URL}/users`, {
     headers: {
@@ -51,6 +49,51 @@ export async function getUsers() {
 
   if (!response.ok) {
     throw new Error(result.message || "Failed to load users.");
+  }
+
+  return result.data;
+}
+
+// =========================
+// GET USER PROFILE
+// =========================
+
+export async function getUserById(userId) {
+  const response = await fetch(`${API_URL}/users/${userId}`, {
+    headers: {
+      ...getAuthHeaders(),
+    },
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "Failed to load profile.");
+  }
+
+  return result.data;
+}
+
+// =========================
+// UPDATE USER PROFILE
+// =========================
+
+export async function updateUser(userId, userData) {
+  const response = await fetch(`${API_URL}/users/${userId}`, {
+    method: "PUT",
+
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeaders(),
+    },
+
+    body: JSON.stringify(userData),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "Failed to update profile.");
   }
 
   return result.data;

@@ -9,6 +9,7 @@ import Notifications from "./pages/Notifications.jsx";
 import JoinGroup from "./pages/JoinGroup.jsx";
 import CreateGroup from "./pages/CreateGroup.jsx";
 import CreateExpense from "./pages/CreateExpense.jsx";
+import Profile from "./pages/Profile.jsx";
 
 import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
@@ -21,7 +22,7 @@ function App() {
       <Navbar />
 
       <Routes>
-        {/* 🟢 LOGIN / REGISTRATION */}
+        {/* LOGIN / REGISTRATION */}
 
         <Route path="/login" element={<Login />} />
 
@@ -30,6 +31,10 @@ function App() {
         <Route path="/" element={<Navigate to="/login" replace />} />
 
         <Route path="/dashboard" element={<Dashboard />} />
+
+        {/* 🟢 PROFILE */}
+
+        <Route path="/profile" element={<Profile />} />
 
         <Route path="/groups" element={<Groups />} />
 
@@ -47,7 +52,7 @@ function App() {
 
         <Route path="/join-group" element={<JoinGroup />} />
 
-        {/* 🟢 UNKNOWN ROUTES */}
+        {/* UNKNOWN ROUTES */}
 
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>

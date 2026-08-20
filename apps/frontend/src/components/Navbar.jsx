@@ -82,6 +82,14 @@ function Navbar() {
             Join Group
           </NavLink>
 
+          <NavLink
+            to="/profile"
+            className={getNavLinkClass}
+            onClick={closeMenu}
+          >
+            Profile
+          </NavLink>
+
           <NavLink to="/login" className={getNavLinkClass} onClick={closeMenu}>
             Login
           </NavLink>
