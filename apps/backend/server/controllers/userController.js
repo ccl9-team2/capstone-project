@@ -1,14 +1,19 @@
-import bcrypt from "bcryptjs";
-
 import prisma from "../db/prisma.js";
 
 import { success, failure } from "../utils/apiResponse.js";
 
-import { requireFields } from "../utils/validators.js";
+// =========================
+// AUTHORIZATION HELPER
+// =========================
 
-/**
- * GET /api/users
- */
+function isOwnUser(req, requestedUserId) {
+  return Number(req.user?.id) === Number(requestedUserId);
+}
+
+// =========================
+// GET /api/users
+// =========================
+
 export async function getUsers(req, res, next) {
   try {
     const users = await prisma.user.findMany({
@@ -29,12 +34,26 @@ export async function getUsers(req, res, next) {
   }
 }
 
-/**
- * GET /api/users/:id
- */
+// =========================
+// GET /api/users/:id
+// =========================
+
 export async function getUserById(req, res, next) {
   try {
     const id = Number(req.params.id);
+
+    if (!Number.isInteger(id)) {
+      return failure(res, "Invalid user ID.", 400);
+    }
+
+    // 🟢 USER PERMISSION
+    if (!isOwnUser(req, id)) {
+      return failure(
+        res,
+        "You do not have permission to view this user account.",
+        403,
+      );
+    }
 
     const user = await prisma.user.findUnique({
       where: {
@@ -58,64 +77,22 @@ export async function getUserById(req, res, next) {
   }
 }
 
-/**
- * POST /api/users
- */
-export async function createUser(req, res, next) {
-  try {
-    requireFields(req.body, ["name", "email", "password"]);
+// =========================
+// PUT /api/users/:id
+// =========================
 
-    const name = String(req.body.name).trim();
-
-    const email = String(req.body.email).trim().toLowerCase();
-
-    const password = String(req.body.password);
-
-    if (password.length < 6) {
-      return failure(res, "Password must be at least 6 characters.", 400);
-    }
-
-    const existing = await prisma.user.findUnique({
-      where: {
-        email,
-      },
-    });
-
-    if (existing) {
-      return failure(res, "Email already exists.", 409);
-    }
-
-    // 🟢 CHANGED
-    // Never store a new password as plain text.
-    const hashedPassword = await bcrypt.hash(password, 12);
-
-    const user = await prisma.user.create({
-      data: {
-        name,
-        email,
-
-        password: hashedPassword,
-      },
-
-      select: {
-        id: true,
-        name: true,
-        email: true,
-      },
-    });
-
-    success(res, user, 201);
-  } catch (error) {
-    next(error);
-  }
-}
-
-/**
- * PUT /api/users/:id
- */
 export async function updateUser(req, res, next) {
   try {
     const id = Number(req.params.id);
+
+    if (!Number.isInteger(id)) {
+      return failure(res, "Invalid user ID.", 400);
+    }
+
+    // 🟢 USER PERMISSION
+    if (!isOwnUser(req, id)) {
+      return failure(res, "You cannot modify another user's account.", 403);
+    }
 
     const existing = await prisma.user.findUnique({
       where: {
@@ -127,17 +104,36 @@ export async function updateUser(req, res, next) {
       return failure(res, "User not found.", 404);
     }
 
+    // 🟢 PREVENT DUPLICATE EMAIL
+    if (req.body.email) {
+      const normalizedEmail = String(req.body.email).trim().toLowerCase();
+
+      const emailOwner = await prisma.user.findUnique({
+        where: {
+          email: normalizedEmail,
+        },
+      });
+
+      if (emailOwner && Number(emailOwner.id) !== id) {
+        return failure(res, "That email address is already in use.", 409);
+      }
+    }
+
     const updated = await prisma.user.update({
       where: {
         id,
       },
 
       data: {
-        name: req.body.name,
+        name:
+          req.body.name !== undefined
+            ? String(req.body.name).trim()
+            : undefined,
 
-        email: req.body.email
-          ? String(req.body.email).trim().toLowerCase()
-          : undefined,
+        email:
+          req.body.email !== undefined
+            ? String(req.body.email).trim().toLowerCase()
+            : undefined,
       },
 
       select: {
@@ -153,12 +149,22 @@ export async function updateUser(req, res, next) {
   }
 }
 
-/**
- * DELETE /api/users/:id
- */
+// =========================
+// DELETE /api/users/:id
+// =========================
+
 export async function deleteUser(req, res, next) {
   try {
     const id = Number(req.params.id);
+
+    if (!Number.isInteger(id)) {
+      return failure(res, "Invalid user ID.", 400);
+    }
+
+    // 🟢 USER PERMISSION
+    if (!isOwnUser(req, id)) {
+      return failure(res, "You cannot delete another user's account.", 403);
+    }
 
     const existing = await prisma.user.findUnique({
       where: {
@@ -184,15 +190,24 @@ export async function deleteUser(req, res, next) {
   }
 }
 
-/**
- * GET /api/users/:id/balances
- *
- * Returns how much a user owes others,
- * and how much others owe them.
- */
+// =========================
+// GET /api/users/:id/balances
+// =========================
+
 export async function getUserBalances(req, res, next) {
   try {
     const userId = Number(req.params.id);
+
+    if (!Number.isInteger(userId)) {
+      return failure(res, "Invalid user ID.", 400);
+    }
+
+    // 🟢 USER PERMISSION
+    // A user may only retrieve their
+    // own personal balance summary.
+    if (!isOwnUser(req, userId)) {
+      return failure(res, "You cannot view another user's balances.", 403);
+    }
 
     const user = await prisma.user.findUnique({
       where: {
@@ -208,6 +223,10 @@ export async function getUserBalances(req, res, next) {
     if (!user) {
       return failure(res, "User not found.", 404);
     }
+
+    // =========================
+    // MONEY THIS USER OWES
+    // =========================
 
     const owedByUser = await prisma.expenseSplit.findMany({
       where: {
@@ -226,7 +245,6 @@ export async function getUserBalances(req, res, next) {
         expense: {
           select: {
             id: true,
-
             description: true,
 
             createdBy: {
@@ -239,6 +257,10 @@ export async function getUserBalances(req, res, next) {
         },
       },
     });
+
+    // =========================
+    // MONEY OWED TO THIS USER
+    // =========================
 
     const owedToUser = await prisma.expenseSplit.findMany({
       where: {
