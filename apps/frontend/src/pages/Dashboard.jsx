@@ -4,7 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { getUserBalances } from "../api/users.js";
 import { getNotifications } from "../api/notifications.js";
 
-const API_URL = "http://localhost:3001/api";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
 
 function Dashboard() {
   const navigate = useNavigate();
