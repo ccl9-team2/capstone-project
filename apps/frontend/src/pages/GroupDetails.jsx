@@ -1,19 +1,21 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 
 import {
-  getGroupMembers,
   addGroupMember,
+  getGroupMembers,
   removeGroupMember,
 } from "../api/groupMembers.js";
 
+import { deleteGroup, getGroupById } from "../api/groups.js";
 import { getGroupQRCode } from "../api/qrCodes.js";
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
+import { getUsers } from "../api/users.js";
 
 function GroupDetails() {
   const { id } = useParams();
+
+  const navigate = useNavigate();
 
   const [group, setGroup] = useState(null);
   const [members, setMembers] = useState([]);
@@ -23,39 +25,47 @@ function GroupDetails() {
 
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
 
   const [qrCode, setQrCode] = useState("");
   const [showQRCode, setShowQRCode] = useState(false);
   const [qrLoading, setQrLoading] = useState(false);
 
-  async function loadGroup() {
-    const response = await fetch(`${API_URL}/groups/${id}`);
+  function getLoggedInUser() {
+    try {
+      const storedUser = localStorage.getItem("uome-user");
 
-    const result = await response.json();
+      if (!storedUser) {
+        return null;
+      }
 
-    if (!response.ok) {
-      throw new Error(result.message || "Failed to load group.");
+      return JSON.parse(storedUser);
+    } catch (err) {
+      console.error("Unable to read logged-in user:", err);
+
+      return null;
     }
+  }
 
-    setGroup(result.data);
+  async function loadGroup() {
+    const data = await getGroupById(id);
+
+    setGroup(data);
+
+    return data;
   }
 
   async function loadMembers() {
     const data = await getGroupMembers(id);
-    setMembers(data);
+
+    setMembers(Array.isArray(data) ? data : []);
   }
 
   async function loadUsers() {
-    const response = await fetch(`${API_URL}/users`);
+    const data = await getUsers();
 
-    const result = await response.json();
-
-    if (!response.ok) {
-      throw new Error(result.message || "Failed to load users.");
-    }
-
-    setUsers(result.data);
+    setUsers(Array.isArray(data) ? data : []);
   }
 
   async function loadPage() {
@@ -82,6 +92,7 @@ function GroupDetails() {
 
     if (!selectedUserId) {
       setError("Please select a user.");
+
       return;
     }
 
@@ -125,6 +136,33 @@ function GroupDetails() {
     }
   }
 
+  async function handleDeleteGroup() {
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this group? This cannot be undone.",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setDeleting(true);
+      setError("");
+
+      await deleteGroup(id);
+
+      navigate("/groups", {
+        replace: true,
+      });
+    } catch (err) {
+      console.error(err);
+
+      setError(err.message || "Unable to delete group.");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   async function handleGenerateQRCode() {
     try {
       setQrLoading(true);
@@ -160,12 +198,21 @@ function GroupDetails() {
   if (!group) {
     return (
       <main className="page group-dashboard-page">
-        <h1>Group not found</h1>
+        <h1>Unable to load group</h1>
+
+        {error && <div className="form-error">{error}</div>}
 
         <Link to="/groups">Back to Groups</Link>
       </main>
     );
   }
+
+  const currentUser = getLoggedInUser();
+
+  const creatorId = group.createdById ?? group.createdBy?.id;
+
+  const isCreator =
+    currentUser?.id && Number(currentUser.id) === Number(creatorId);
 
   const memberIds = new Set(
     members.map((member) =>
@@ -190,7 +237,6 @@ function GroupDetails() {
 
   return (
     <main className="page group-dashboard-page">
-      {/* 🟢 DASHBOARD-STYLE GROUP HEADER */}
       <div className="group-dashboard-header">
         <div>
           <Link to="/groups" className="group-back-link">
@@ -202,14 +248,26 @@ function GroupDetails() {
           <p>Here's a quick look at what's happening in this group.</p>
         </div>
 
-        <Link to={`/groups/${id}/expenses/new`} className="button">
-          + Add Expense
-        </Link>
+        <div>
+          <Link to={`/groups/${id}/expenses/new`} className="button">
+            + Add Expense
+          </Link>
+
+          {isCreator && (
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={handleDeleteGroup}
+              disabled={deleting}
+            >
+              {deleting ? "Deleting..." : "Delete Group"}
+            </button>
+          )}
+        </div>
       </div>
 
       {error && <div className="form-error">{error}</div>}
 
-      {/* 🟢 THREE SUMMARY CARDS */}
       <section className="stats-grid group-dashboard-stats">
         <div className="stat-card group-dashboard-stat-card">
           <span className="stat-label">Members</span>
@@ -236,9 +294,7 @@ function GroupDetails() {
         </div>
       </section>
 
-      {/* 🟢 DASHBOARD-STYLE TWO COLUMN AREA */}
       <div className="group-dashboard-main-grid">
-        {/* RECENT EXPENSES */}
         <section className="content-section group-dashboard-panel">
           <div className="group-dashboard-section-header">
             <div>
@@ -279,7 +335,6 @@ function GroupDetails() {
           )}
         </section>
 
-        {/* MEMBERS */}
         <section className="content-section group-dashboard-panel">
           <div className="group-dashboard-section-header">
             <div>
@@ -298,61 +353,70 @@ function GroupDetails() {
 
                 const userId = member.userId ?? user.id;
 
+                const isGroupCreator = Number(userId) === Number(creatorId);
+
                 return (
                   <div className="group-dashboard-row member-row" key={userId}>
                     <div>
-                      <strong>{user.name ?? "Unknown User"}</strong>
+                      <strong>
+                        {user.name ?? "Unknown User"}
+                        {isGroupCreator ? " (Creator)" : ""}
+                      </strong>
 
                       <p>{user.email ?? ""}</p>
                     </div>
 
-                    <button
-                      className="secondary-button"
-                      onClick={() => handleRemoveMember(userId)}
-                    >
-                      Remove
-                    </button>
+                    {isCreator && !isGroupCreator && (
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        onClick={() => handleRemoveMember(userId)}
+                      >
+                        Remove
+                      </button>
+                    )}
                   </div>
                 );
               })}
             </div>
           )}
 
-          <div className="group-dashboard-add-member">
-            <h3>Add Someone</h3>
+          {isCreator && (
+            <div className="group-dashboard-add-member">
+              <h3>Add Someone</h3>
 
-            {availableUsers.length === 0 ? (
-              <p className="group-muted-text">
-                Everyone is already in this group.
-              </p>
-            ) : (
-              <form
-                className="member-form group-dashboard-member-form"
-                onSubmit={handleAddMember}
-              >
-                <select
-                  value={selectedUserId}
-                  onChange={(event) => setSelectedUserId(event.target.value)}
+              {availableUsers.length === 0 ? (
+                <p className="group-muted-text">
+                  Everyone is already in this group.
+                </p>
+              ) : (
+                <form
+                  className="member-form group-dashboard-member-form"
+                  onSubmit={handleAddMember}
                 >
-                  <option value="">Select a user</option>
+                  <select
+                    value={selectedUserId}
+                    onChange={(event) => setSelectedUserId(event.target.value)}
+                  >
+                    <option value="">Select a user</option>
 
-                  {availableUsers.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.name} ({user.email})
-                    </option>
-                  ))}
-                </select>
+                    {availableUsers.map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.name} ({user.email})
+                      </option>
+                    ))}
+                  </select>
 
-                <button type="submit" className="button" disabled={adding}>
-                  {adding ? "Adding..." : "Add"}
-                </button>
-              </form>
-            )}
-          </div>
+                  <button type="submit" className="button" disabled={adding}>
+                    {adding ? "Adding..." : "Add"}
+                  </button>
+                </form>
+              )}
+            </div>
+          )}
         </section>
       </div>
 
-      {/* 🟢 INVITE PANEL */}
       <section className="content-section group-dashboard-panel group-dashboard-invite">
         <div className="group-dashboard-section-header">
           <div>
@@ -362,6 +426,7 @@ function GroupDetails() {
           </div>
 
           <button
+            type="button"
             className="button"
             onClick={handleGenerateQRCode}
             disabled={qrLoading}

@@ -1,7 +1,15 @@
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
 
+function getAuthHeaders() {
+  const token = localStorage.getItem("uome-token");
+
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export async function getGroupMembers(groupId) {
-  const response = await fetch(`${API_URL}/groups/${groupId}/members`);
+  const response = await fetch(`${API_URL}/groups/${groupId}/members`, {
+    headers: getAuthHeaders(),
+  });
 
   const result = await response.json();
 
@@ -17,6 +25,7 @@ export async function addGroupMember(groupId, userId) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...getAuthHeaders(),
     },
     body: JSON.stringify({
       userId,
@@ -37,6 +46,7 @@ export async function removeGroupMember(groupId, userId) {
     `${API_URL}/groups/${groupId}/members/${userId}`,
     {
       method: "DELETE",
+      headers: getAuthHeaders(),
     },
   );
 

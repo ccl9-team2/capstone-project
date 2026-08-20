@@ -1,4 +1,5 @@
 import express from "express";
+import authenticate from "../middleware/authenticate.js";
 
 import {
   getGroups,
@@ -13,6 +14,8 @@ import {
 } from "../controllers/groupController.js";
 
 const router = express.Router();
+
+router.use(authenticate);
 
 router.get("/", getGroups);
 

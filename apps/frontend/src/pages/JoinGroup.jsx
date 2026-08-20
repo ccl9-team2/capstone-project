@@ -1,33 +1,21 @@
 import { useState } from "react";
 
-import {
-  Link,
-  useNavigate,
-  useSearchParams
-} from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
-import {
-  joinGroupWithQRCode
-} from "../api/qrCodes.js";
+import { joinGroupWithQRCode } from "../api/qrCodes.js";
 
 function JoinGroup() {
-  const navigate =
-    useNavigate();
+  const navigate = useNavigate();
 
-  const [searchParams] =
-    useSearchParams();
+  const [searchParams] = useSearchParams();
 
-  const initialCode =
-    searchParams.get("code") || "";
+  const initialCode = searchParams.get("code") || "";
 
-  const [code, setCode] =
-    useState(initialCode);
+  const [code, setCode] = useState(initialCode);
 
-  const [loading, setLoading] =
-    useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const [error, setError] =
-    useState("");
+  const [error, setError] = useState("");
 
   // =========================
   // 🟢 AUTHENTICATED USER
@@ -35,17 +23,13 @@ function JoinGroup() {
 
   function getLoggedInUser() {
     try {
-      const storedUser =
-        localStorage.getItem(
-          "uome-user"
-        );
+      const storedUser = localStorage.getItem("uome-user");
 
       if (!storedUser) {
         return null;
       }
 
-      const user =
-        JSON.parse(storedUser);
+      const user = JSON.parse(storedUser);
 
       if (!user?.id) {
         return null;
@@ -53,38 +37,27 @@ function JoinGroup() {
 
       return user;
     } catch (err) {
-      console.error(
-        "Unable to read logged-in user:",
-        err
-      );
+      console.error("Unable to read logged-in user:", err);
 
       return null;
     }
   }
 
-  async function handleJoinGroup(
-    event
-  ) {
+  async function handleJoinGroup(event) {
     event.preventDefault();
 
     if (!code.trim()) {
-      setError(
-        "Please enter a group code."
-      );
+      setError("Please enter a group code.");
 
       return;
     }
 
-    const currentUser =
-      getLoggedInUser();
+    const currentUser = getLoggedInUser();
 
     if (!currentUser) {
-      navigate(
-        "/login",
-        {
-          replace: true
-        }
-      );
+      navigate("/login", {
+        replace: true,
+      });
 
       return;
     }
@@ -94,27 +67,16 @@ function JoinGroup() {
 
       setError("");
 
-      // 🟢 AUTHENTICATED USER
-      // Sends the group code and
-      // the logged-in user's ID.
-      const group =
-        await joinGroupWithQRCode(
-          code.trim(),
-          currentUser.id
-        );
+      // The backend identifies the joining user from the JWT.
+      const group = await joinGroupWithQRCode(code.trim());
 
-      const groupId =
-        group?.id ??
-        group?.group?.id ??
-        group?.groupId;
+      const groupId = group?.id ?? group?.group?.id ?? group?.groupId;
 
       if (groupId) {
-        navigate(
-          `/groups/${groupId}`
-        );
+        navigate(`/groups/${groupId}`);
       } else {
         setError(
-          "You joined the group, but we couldn't determine which group to open."
+          "You joined the group, but we couldn't determine which group to open.",
         );
       }
     } catch (err) {
@@ -122,7 +84,7 @@ function JoinGroup() {
 
       setError(
         err.message ||
-          "We couldn't join that group. Please check the code and try again."
+          "We couldn't join that group. Please check the code and try again.",
       );
     } finally {
       setLoading(false);
@@ -136,22 +98,13 @@ function JoinGroup() {
       {/* ========================= */}
 
       <div className="join-group-header">
-        <Link
-          to="/groups"
-          className="back-link join-group-back-link"
-        >
+        <Link to="/groups" className="back-link join-group-back-link">
           ← Back to Groups
         </Link>
 
-        <h1>
-          Join a Group
-        </h1>
+        <h1>Join a Group</h1>
 
-        <p>
-          Have a group code?
-          Enter it below and
-          we'll take you there.
-        </p>
+        <p>Have a group code? Enter it below and we'll take you there.</p>
       </div>
 
       {/* ========================= */}
@@ -160,48 +113,26 @@ function JoinGroup() {
 
       <section className="content-section join-group-card">
         <div className="join-group-card-header">
-          <h2>
-            Enter Group Code
-          </h2>
+          <h2>Enter Group Code</h2>
 
           <p>
-            Group codes usually
-            look something like{" "}
-            <strong>
-              GROUP-2
-            </strong>
-            .
+            Group codes usually look something like <strong>GROUP-2</strong>.
           </p>
         </div>
 
-        {error && (
-          <div className="form-error">
-            {error}
-          </div>
-        )}
+        {error && <div className="form-error">{error}</div>}
 
-        <form
-          className="join-group-form"
-          onSubmit={
-            handleJoinGroup
-          }
-        >
+        <form className="join-group-form" onSubmit={handleJoinGroup}>
           <div className="join-group-field">
-            <label htmlFor="group-code">
-              Group code
-            </label>
+            <label htmlFor="group-code">Group code</label>
 
             <input
               id="group-code"
               type="text"
               placeholder="Example: GROUP-2"
               value={code}
-              onChange={(
-                event
-              ) => {
-                setCode(
-                  event.target.value
-                );
+              onChange={(event) => {
+                setCode(event.target.value);
 
                 if (error) {
                   setError("");
@@ -217,21 +148,15 @@ function JoinGroup() {
             className="button join-group-button"
             disabled={loading}
           >
-            {loading
-              ? "Joining..."
-              : "Join Group"}
+            {loading ? "Joining..." : "Join Group"}
           </button>
         </form>
 
         <div className="join-group-help">
-          <strong>
-            Don't have a code?
-          </strong>
+          <strong>Don't have a code?</strong>
 
           <p>
-            Ask a member of the
-            group to send you their
-            UOME group code or QR
+            Ask a member of the group to send you their UOME group code or QR
             code.
           </p>
         </div>

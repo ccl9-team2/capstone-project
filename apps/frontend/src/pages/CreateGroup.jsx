@@ -33,7 +33,15 @@ function CreateGroup() {
       return null;
     }
   }
+  function getAuthHeaders() {
+    const token = localStorage.getItem("uome-token");
 
+    return token
+      ? {
+          Authorization: `Bearer ${token}`,
+        }
+      : {};
+  }
   async function handleSubmit(event) {
     event.preventDefault();
 
@@ -62,13 +70,11 @@ function CreateGroup() {
 
         headers: {
           "Content-Type": "application/json",
+          ...getAuthHeaders(),
         },
 
         body: JSON.stringify({
           name: name.trim(),
-
-          // 🟢 AUTHENTICATED USER
-          createdById: currentUser.id,
         }),
       });
 

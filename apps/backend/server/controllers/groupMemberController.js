@@ -2,6 +2,22 @@ import prisma from "../db/prisma.js";
 import { success, failure } from "../utils/apiResponse.js";
 import { requireFields } from "../utils/validators.js";
 
+async function findGroupWithRequester(groupId, userId) {
+  return prisma.group.findUnique({
+    where: { id: groupId },
+    include: {
+      members: {
+        where: { userId },
+        select: { id: true },
+      },
+    },
+  });
+}
+
+function isCreator(group, userId) {
+  return Number(group.createdById) === Number(userId);
+}
+
 /**
  * GET /api/groups/:groupId/members
  */
@@ -9,14 +25,14 @@ export async function getGroupMembers(req, res, next) {
   try {
     const groupId = Number(req.params.groupId);
 
-    const group = await prisma.group.findUnique({
-      where: {
-        id: groupId,
-      },
-    });
+    const group = await findGroupWithRequester(groupId, req.user.id);
 
     if (!group) {
       return failure(res, "Group not found.", 404);
+    }
+
+    if (group.members.length === 0) {
+      return failure(res, "You do not have permission to view these members.", 403);
     }
 
     const members = await prisma.groupMember.findMany({
@@ -62,6 +78,10 @@ export async function addGroupMember(req, res, next) {
 
     if (!group) {
       return failure(res, "Group not found.", 404);
+    }
+
+    if (!isCreator(group, req.user.id)) {
+      return failure(res, "Only the group creator can add members.", 403);
     }
 
     const user = await prisma.user.findUnique({
@@ -117,6 +137,22 @@ export async function removeGroupMember(req, res, next) {
     const groupId = Number(req.params.groupId);
 
     const userId = Number(req.params.userId);
+
+    const group = await prisma.group.findUnique({
+      where: { id: groupId },
+    });
+
+    if (!group) {
+      return failure(res, "Group not found.", 404);
+    }
+
+    if (!isCreator(group, req.user.id)) {
+      return failure(res, "Only the group creator can remove members.", 403);
+    }
+
+    if (Number(group.createdById) === userId) {
+      return failure(res, "The group creator cannot be removed.", 400);
+    }
 
     const member = await prisma.groupMember.findUnique({
       where: {

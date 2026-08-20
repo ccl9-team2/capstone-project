@@ -2,12 +2,41 @@ import prisma from "../db/prisma.js";
 import { success, failure } from "../utils/apiResponse.js";
 import { requireFields } from "../utils/validators.js";
 
+async function getGroupAccess(groupId, userId) {
+  return prisma.group.findUnique({
+    where: { id: groupId },
+    select: {
+      id: true,
+      createdById: true,
+      members: {
+        where: { userId },
+        select: { id: true },
+      },
+    },
+  });
+}
+
+function isGroupCreator(group, userId) {
+  return Number(group.createdById) === Number(userId);
+}
+
+function isGroupMember(group) {
+  return group.members.length > 0;
+}
+
 /**
  * GET /api/groups
  */
 export async function getGroups(req, res, next) {
   try {
     const groups = await prisma.group.findMany({
+      where: {
+        members: {
+          some: {
+            userId: req.user.id,
+          },
+        },
+      },
       include: {
         createdBy: {
           select: {
@@ -81,6 +110,14 @@ export async function getGroupById(req, res, next) {
       return failure(res, "Group not found.", 404);
     }
 
+    const isMember = group.members.some(
+      (member) => Number(member.userId) === Number(req.user.id),
+    );
+
+    if (!isMember) {
+      return failure(res, "You do not have permission to view this group.", 403);
+    }
+
     success(res, group);
   } catch (error) {
     next(error);
@@ -92,9 +129,10 @@ export async function getGroupById(req, res, next) {
  */
 export async function createGroup(req, res, next) {
   try {
-    requireFields(req.body, ["name", "createdById"]);
+    requireFields(req.body, ["name"]);
 
-    const { name, createdById } = req.body;
+    const name = String(req.body.name).trim();
+    const createdById = req.user.id;
 
     const group = await prisma.$transaction(async (tx) => {
       const newGroup = await tx.group.create({
@@ -138,6 +176,10 @@ export async function updateGroup(req, res, next) {
       return failure(res, "Group not found.", 404);
     }
 
+    if (!isGroupCreator(existing, req.user.id)) {
+      return failure(res, "Only the group creator can update this group.", 403);
+    }
+
     const updated = await prisma.group.update({
       where: {
         id,
@@ -169,6 +211,10 @@ export async function deleteGroup(req, res, next) {
 
     if (!existing) {
       return failure(res, "Group not found.", 404);
+    }
+
+    if (!isGroupCreator(existing, req.user.id)) {
+      return failure(res, "Only the group creator can delete this group.", 403);
     }
 
     const expenseCount = await prisma.expense.count({
@@ -231,6 +277,16 @@ export async function getGroupQRCode(req, res, next) {
       return failure(res, "Group not found.", 404);
     }
 
+    const access = await getGroupAccess(id, req.user.id);
+
+    if (!isGroupMember(access)) {
+      return failure(
+        res,
+        "You do not have permission to access this group code.",
+        403,
+      );
+    }
+
     const code = `GROUP-${group.id}`;
 
     success(res, {
@@ -256,13 +312,7 @@ export async function joinGroupWithCode(req, res, next) {
       .trim()
       .toUpperCase();
 
-    requireFields(req.body, ["userId"]);
-
-    const userId = Number(req.body.userId);
-
-    if (!Number.isInteger(userId)) {
-      return failure(res, "Invalid user ID.", 400);
-    }
+    const userId = req.user.id;
 
     const match = code.match(/^GROUP-(\d+)$/);
 

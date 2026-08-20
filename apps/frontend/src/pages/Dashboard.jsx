@@ -3,8 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { getUserBalances } from "../api/users.js";
 import { getNotifications } from "../api/notifications.js";
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
+import { getGroups } from "../api/groups.js";
 
 function Dashboard() {
   const navigate = useNavigate();
@@ -55,26 +54,6 @@ function Dashboard() {
   // GET CURRENT USER GROUPS
   // =========================
 
-  async function getCurrentUserGroups(userId) {
-    const response = await fetch(`${API_URL}/groups`);
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      throw new Error(result.message || "We couldn't load your groups.");
-    }
-
-    const allGroups = result.data ?? [];
-
-    return allGroups.filter((group) =>
-      group.members?.some((member) => {
-        const memberUserId = member.userId ?? member.user?.id;
-
-        return Number(memberUserId) === Number(userId);
-      }),
-    );
-  }
-
   // =========================
   // GREETING
   // =========================
@@ -121,7 +100,7 @@ function Dashboard() {
 
         getNotifications(user.id),
 
-        getCurrentUserGroups(user.id),
+        getGroups(),
       ]);
 
       setBalances(balanceData);
