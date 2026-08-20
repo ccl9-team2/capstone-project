@@ -3,8 +3,11 @@ import jwt from "jsonwebtoken";
 import prisma from "../db/prisma.js";
 import { failure } from "../utils/apiResponse.js";
 
-const JWT_SECRET =
-  process.env.JWT_SECRET || "temporary-uome-development-secret";
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+  throw new Error("JWT_SECRET environment variable is required.");
+}
 
 /**
  * Authentication middleware

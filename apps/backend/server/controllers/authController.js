@@ -5,9 +5,11 @@ import prisma from "../db/prisma.js";
 import { success, failure } from "../utils/apiResponse.js";
 import { requireFields } from "../utils/validators.js";
 
-const JWT_SECRET =
-  process.env.JWT_SECRET || "temporary-uome-development-secret";
+const JWT_SECRET = process.env.JWT_SECRET;
 
+if (!JWT_SECRET) {
+  throw new Error("JWT_SECRET environment variable is required.");
+}
 /**
  * Create a signed login token.
  */
