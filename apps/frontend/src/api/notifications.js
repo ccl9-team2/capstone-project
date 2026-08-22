@@ -1,19 +1,29 @@
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
 
-export async function getNotifications(userId) {
-  const params = new URLSearchParams();
+// =========================
+// AUTH HEADERS
+// =========================
 
-  if (userId) {
-    params.set("userId", String(userId));
-  }
+function getAuthHeaders() {
+  const token = localStorage.getItem("uome-token");
 
-  const queryString = params.toString();
+  return token
+    ? {
+        Authorization: `Bearer ${token}`,
+      }
+    : {};
+}
 
-  const url = queryString
-    ? `${API_URL}/notifications?${queryString}`
-    : `${API_URL}/notifications`;
+// =========================
+// GET NOTIFICATIONS
+// =========================
 
-  const response = await fetch(url);
+export async function getNotifications() {
+  const response = await fetch(`${API_URL}/notifications`, {
+    headers: {
+      ...getAuthHeaders(),
+    },
+  });
 
   const result = await response.json();
 
@@ -24,9 +34,17 @@ export async function getNotifications(userId) {
   return result.data;
 }
 
+// =========================
+// MARK AS READ
+// =========================
+
 export async function markNotificationAsRead(id) {
   const response = await fetch(`${API_URL}/notifications/${id}/read`, {
     method: "PATCH",
+
+    headers: {
+      ...getAuthHeaders(),
+    },
   });
 
   const result = await response.json();
@@ -38,9 +56,17 @@ export async function markNotificationAsRead(id) {
   return result.data;
 }
 
+// =========================
+// DELETE NOTIFICATION
+// =========================
+
 export async function deleteNotification(id) {
   const response = await fetch(`${API_URL}/notifications/${id}`, {
     method: "DELETE",
+
+    headers: {
+      ...getAuthHeaders(),
+    },
   });
 
   const result = await response.json();

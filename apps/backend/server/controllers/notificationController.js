@@ -1,21 +1,32 @@
 import prisma from "../db/prisma.js";
+
 import { success, failure } from "../utils/apiResponse.js";
+
 import { requireFields } from "../utils/validators.js";
 
-/**
- * GET /api/notifications
- */
+// =========================
+// GET /api/notifications
+// =========================
+
 export async function getNotifications(req, res, next) {
   try {
-    const { userId, isRead } = req.query;
+    const userId = Number(req.user.id);
+
+    const { isRead } = req.query;
 
     const where = {
-      ...(userId ? { userId: Number(userId) } : {}),
-      ...(isRead !== undefined ? { isRead: isRead === "true" } : {}),
+      userId,
+
+      ...(isRead !== undefined
+        ? {
+            isRead: isRead === "true",
+          }
+        : {}),
     };
 
     const notifications = await prisma.notification.findMany({
       where,
+
       orderBy: {
         createdAt: "desc",
       },
@@ -27,19 +38,32 @@ export async function getNotifications(req, res, next) {
   }
 }
 
-/**
- * GET /api/notifications/:id
- */
+// =========================
+// GET /api/notifications/:id
+// =========================
+
 export async function getNotificationById(req, res, next) {
   try {
     const id = Number(req.params.id);
 
     const notification = await prisma.notification.findUnique({
-      where: { id },
+      where: {
+        id,
+      },
     });
 
     if (!notification) {
       return failure(res, "Notification not found.", 404);
+    }
+
+    // User may only view
+    // their own notification.
+    if (Number(notification.userId) !== Number(req.user.id)) {
+      return failure(
+        res,
+        "You do not have permission to view this notification.",
+        403,
+      );
     }
 
     success(res, notification);
@@ -48,17 +72,23 @@ export async function getNotificationById(req, res, next) {
   }
 }
 
-/**
- * POST /api/notifications
- */
+// =========================
+// POST /api/notifications
+// =========================
+
 export async function createNotification(req, res, next) {
   try {
-    requireFields(req.body, ["userId", "message"]);
+    requireFields(req.body, ["message"]);
 
     const notification = await prisma.notification.create({
       data: {
-        userId: Number(req.body.userId),
-        message: req.body.message,
+        // Manual notification route
+        // creates a notification for
+        // the logged-in user.
+        userId: Number(req.user.id),
+
+        message: String(req.body.message),
+
         isRead: false,
       },
     });
@@ -69,22 +99,40 @@ export async function createNotification(req, res, next) {
   }
 }
 
-/**
- * PATCH /api/notifications/:id/read
- */
+// =========================
+// PATCH /api/notifications/:id/read
+// =========================
+
 export async function markNotificationAsRead(req, res, next) {
   try {
     const id = Number(req.params.id);
 
-    const existing = await prisma.notification.findUnique({ where: { id } });
+    const existing = await prisma.notification.findUnique({
+      where: {
+        id,
+      },
+    });
 
     if (!existing) {
       return failure(res, "Notification not found.", 404);
     }
 
+    if (Number(existing.userId) !== Number(req.user.id)) {
+      return failure(
+        res,
+        "You cannot modify another user's notification.",
+        403,
+      );
+    }
+
     const updated = await prisma.notification.update({
-      where: { id },
-      data: { isRead: true },
+      where: {
+        id,
+      },
+
+      data: {
+        isRead: true,
+      },
     });
 
     success(res, updated);
@@ -93,22 +141,41 @@ export async function markNotificationAsRead(req, res, next) {
   }
 }
 
-/**
- * DELETE /api/notifications/:id
- */
+// =========================
+// DELETE /api/notifications/:id
+// =========================
+
 export async function deleteNotification(req, res, next) {
   try {
     const id = Number(req.params.id);
 
-    const existing = await prisma.notification.findUnique({ where: { id } });
+    const existing = await prisma.notification.findUnique({
+      where: {
+        id,
+      },
+    });
 
     if (!existing) {
       return failure(res, "Notification not found.", 404);
     }
 
-    await prisma.notification.delete({ where: { id } });
+    if (Number(existing.userId) !== Number(req.user.id)) {
+      return failure(
+        res,
+        "You cannot delete another user's notification.",
+        403,
+      );
+    }
 
-    success(res, { message: "Notification deleted successfully." });
+    await prisma.notification.delete({
+      where: {
+        id,
+      },
+    });
+
+    success(res, {
+      message: "Notification deleted successfully.",
+    });
   } catch (error) {
     next(error);
   }

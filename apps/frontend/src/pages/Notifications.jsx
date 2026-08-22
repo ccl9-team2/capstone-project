@@ -15,10 +15,12 @@ function Notifications() {
 
   const [loading, setLoading] = useState(true);
 
+  const [refreshing, setRefreshing] = useState(false);
+
   const [error, setError] = useState("");
 
   // =========================
-  // 🟢 AUTHENTICATED USER
+  // AUTHENTICATED USER
   // =========================
 
   function getLoggedInUser() {
@@ -47,9 +49,13 @@ function Notifications() {
   // LOAD NOTIFICATIONS
   // =========================
 
-  async function loadNotifications() {
+  async function loadNotifications(silent = false) {
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      } else {
+        setRefreshing(true);
+      }
 
       setError("");
 
@@ -63,7 +69,7 @@ function Notifications() {
         return;
       }
 
-      const data = await getNotifications(currentUser.id);
+      const data = await getNotifications();
 
       setNotifications(Array.isArray(data) ? data : []);
     } catch (err) {
@@ -72,11 +78,24 @@ function Notifications() {
       setError(err.message || "Unable to load notifications.");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }
 
+  // =========================
+  // INITIAL LOAD + AUTO REFRESH
+  // =========================
+
   useEffect(() => {
     loadNotifications();
+
+    const interval = window.setInterval(() => {
+      loadNotifications(true);
+    }, 15000);
+
+    return () => {
+      window.clearInterval(interval);
+    };
   }, []);
 
   // =========================
@@ -107,14 +126,13 @@ function Notifications() {
   }
 
   // =========================
-  // 🟢 OPEN NOTIFICATION
+  // OPEN NOTIFICATION
   // =========================
 
   async function handleOpenNotification(notification) {
     try {
       setError("");
 
-      // 🟢 Opening a notification also marks it as read.
       if (!notification.isRead) {
         await markNotificationAsRead(notification.id);
 
@@ -134,22 +152,22 @@ function Notifications() {
         notification.message ?? notification.text ?? "",
       ).toLowerCase();
 
-      // =========================
-      // FRIEND REQUEST
-      // =========================
-
       if (message.includes("friend request")) {
         navigate("/friends");
 
         return;
       }
 
-      // =========================
-      // FALLBACK
-      // =========================
+      if (message.includes("group")) {
+        navigate("/groups");
 
-      // For notifications that do not yet have
-      // a destination, simply leave them marked read.
+        return;
+      }
+
+      // Payment notifications don't
+      // currently store an expense ID,
+      // so they remain on this page
+      // after being marked read.
     } catch (err) {
       console.error(err);
 
@@ -195,7 +213,7 @@ function Notifications() {
   }
 
   // =========================
-  // 🟢 NOTIFICATION TITLE
+  // NOTIFICATION TITLE
   // =========================
 
   function getNotificationTitle(notification) {
@@ -219,11 +237,27 @@ function Notifications() {
       return "Friend Request Declined";
     }
 
+    if (message.includes("paid you")) {
+      return "Payment Received";
+    }
+
+    if (message.includes("settled")) {
+      return "Balance Settled";
+    }
+
+    if (message.includes("expense")) {
+      return "New Expense";
+    }
+
+    if (message.includes("group")) {
+      return "Group Activity";
+    }
+
     return "Notification";
   }
 
   // =========================
-  // 🟢 ACTION LABEL
+  // ACTION LABEL
   // =========================
 
   function getNotificationActionLabel(notification) {
@@ -237,6 +271,10 @@ function Notifications() {
 
     if (message.includes("friend request")) {
       return "View Friends";
+    }
+
+    if (message.includes("group")) {
+      return "View Groups";
     }
 
     return null;
@@ -273,7 +311,20 @@ function Notifications() {
           <p>Stay on top of payments, requests, and other UOME activity.</p>
         </div>
 
-        <span className="notifications-unread-badge">{unreadCount} unread</span>
+        <div>
+          <span className="notifications-unread-badge">
+            {unreadCount} unread
+          </span>
+
+          <button
+            type="button"
+            className="small-button"
+            disabled={refreshing}
+            onClick={() => loadNotifications(true)}
+          >
+            {refreshing ? "Refreshing..." : "Refresh"}
+          </button>
+        </div>
       </div>
 
       {error && <div className="form-error">{error}</div>}
@@ -327,10 +378,6 @@ function Notifications() {
                 </div>
 
                 <div className="notification-actions compact-notification-actions">
-                  {/* ========================= */}
-                  {/* 🟢 VIEW / OPEN */}
-                  {/* ========================= */}
-
                   {actionLabel && (
                     <button
                       type="button"
@@ -341,10 +388,6 @@ function Notifications() {
                     </button>
                   )}
 
-                  {/* ========================= */}
-                  {/* MARK READ */}
-                  {/* ========================= */}
-
                   {!notification.isRead && (
                     <button
                       type="button"
@@ -354,10 +397,6 @@ function Notifications() {
                       Mark Read
                     </button>
                   )}
-
-                  {/* ========================= */}
-                  {/* DELETE */}
-                  {/* ========================= */}
 
                   <button
                     type="button"

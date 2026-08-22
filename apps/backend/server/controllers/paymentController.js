@@ -15,29 +15,32 @@ export async function getPayments(req, res, next) {
               select: {
                 id: true,
                 description: true,
-                amount: true
-              }
-            }
-          }
+                amount: true,
+              },
+            },
+          },
         },
+
         fromUser: {
           select: {
             id: true,
             name: true,
-            email: true
-          }
+            email: true,
+          },
         },
+
         toUser: {
           select: {
             id: true,
             name: true,
-            email: true
-          }
-        }
+            email: true,
+          },
+        },
       },
+
       orderBy: {
-        paymentDate: "desc"
-      }
+        paymentDate: "desc",
+      },
     });
 
     success(res, payments);
@@ -54,28 +57,33 @@ export async function getPaymentById(req, res, next) {
     const id = Number(req.params.id);
 
     const payment = await prisma.payment.findUnique({
-      where: { id },
+      where: {
+        id,
+      },
+
       include: {
         expenseSplit: {
           include: {
-            expense: true
-          }
+            expense: true,
+          },
         },
+
         fromUser: {
           select: {
             id: true,
             name: true,
-            email: true
-          }
+            email: true,
+          },
         },
+
         toUser: {
           select: {
             id: true,
             name: true,
-            email: true
-          }
-        }
-      }
+            email: true,
+          },
+        },
+      },
     });
 
     if (!payment) {
@@ -91,8 +99,10 @@ export async function getPaymentById(req, res, next) {
 /**
  * POST /api/payments
  *
- * Creates a payment and marks the associated
- * expense split as settled.
+ * Creates a payment,
+ * marks the expense split as settled,
+ * and creates a notification
+ * for the payment recipient.
  */
 export async function createPayment(req, res, next) {
   try {
@@ -100,93 +110,162 @@ export async function createPayment(req, res, next) {
       "expenseSplitId",
       "fromUserId",
       "toUserId",
-      "amount"
+      "amount",
     ]);
 
-    const {
-      expenseSplitId,
-      fromUserId,
-      toUserId,
-      amount
-    } = req.body;
+    const { expenseSplitId, fromUserId, toUserId, amount } = req.body;
 
     const payment = await prisma.$transaction(async (tx) => {
-      // Find the expense split
+      // =========================
+      // FIND EXPENSE SPLIT
+      // =========================
+
       const expenseSplit = await tx.expenseSplit.findUnique({
         where: {
-          id: Number(expenseSplitId)
+          id: Number(expenseSplitId),
         },
+
         include: {
-          expense: true
-        }
+          expense: true,
+        },
       });
 
       if (!expenseSplit) {
         throw new Error("Expense split not found.");
       }
 
-      // Make sure the split hasn't already been settled
+      // =========================
+      // VERIFY NOT SETTLED
+      // =========================
+
       if (expenseSplit.settled) {
         throw new Error("This expense split has already been settled.");
       }
 
-      // Make sure the payment amount matches the amount owed
-      if (
-        Math.abs(
-          Number(amount) - Number(expenseSplit.amountOwed)
-        ) > 0.01
-      ) {
-        throw new Error(
-          "Payment amount must match the amount owed."
-        );
+      // =========================
+      // VERIFY PAYMENT AMOUNT
+      // =========================
+
+      if (Math.abs(Number(amount) - Number(expenseSplit.amountOwed)) > 0.01) {
+        throw new Error("Payment amount must match the amount owed.");
       }
 
-      // Create payment
+      // =========================
+      // FIND PAYER
+      // =========================
+
+      const payer = await tx.user.findUnique({
+        where: {
+          id: Number(fromUserId),
+        },
+
+        select: {
+          id: true,
+          name: true,
+        },
+      });
+
+      if (!payer) {
+        throw new Error("Payment sender not found.");
+      }
+
+      // =========================
+      // FIND RECIPIENT
+      // =========================
+
+      const recipient = await tx.user.findUnique({
+        where: {
+          id: Number(toUserId),
+        },
+
+        select: {
+          id: true,
+          name: true,
+        },
+      });
+
+      if (!recipient) {
+        throw new Error("Payment recipient not found.");
+      }
+
+      // =========================
+      // CREATE PAYMENT
+      // =========================
+
       const newPayment = await tx.payment.create({
         data: {
           expenseSplitId: Number(expenseSplitId),
+
           fromUserId: Number(fromUserId),
+
           toUserId: Number(toUserId),
-          amount: Number(amount)
-        }
+
+          amount: Number(amount),
+        },
       });
 
-      // Mark the split as settled
+      // =========================
+      // MARK SPLIT SETTLED
+      // =========================
+
       await tx.expenseSplit.update({
         where: {
-          id: Number(expenseSplitId)
+          id: Number(expenseSplitId),
         },
+
         data: {
-          settled: true
-        }
+          settled: true,
+        },
       });
 
-      // Return payment with related information
+      // =========================
+      // CREATE PAYMENT NOTIFICATION
+      // =========================
+
+      await tx.notification.create({
+        data: {
+          userId: Number(toUserId),
+
+          message: `${payer.name} paid you $${Number(amount).toFixed(
+            2,
+          )} for ${expenseSplit.expense.description}.`,
+
+          isRead: false,
+        },
+      });
+
+      // =========================
+      // RETURN PAYMENT
+      // =========================
+
       return tx.payment.findUnique({
         where: {
-          id: newPayment.id
+          id: newPayment.id,
         },
+
         include: {
           expenseSplit: {
             include: {
-              expense: true
-            }
+              expense: true,
+            },
           },
+
           fromUser: {
             select: {
               id: true,
               name: true,
-              email: true
-            }
+              email: true,
+            },
           },
+
           toUser: {
             select: {
               id: true,
               name: true,
-              email: true
-            }
-          }
-        }
+              email: true,
+            },
+          },
+        },
       });
     });
 
@@ -204,47 +283,53 @@ export async function updatePayment(req, res, next) {
     const id = Number(req.params.id);
 
     const existing = await prisma.payment.findUnique({
-      where: { id }
+      where: {
+        id,
+      },
     });
 
     if (!existing) {
       return failure(res, "Payment not found.", 404);
     }
 
-    requireFields(req.body, [
-      "fromUserId",
-      "toUserId",
-      "amount"
-    ]);
+    requireFields(req.body, ["fromUserId", "toUserId", "amount"]);
 
     const updatedPayment = await prisma.payment.update({
-      where: { id },
+      where: {
+        id,
+      },
+
       data: {
         fromUserId: Number(req.body.fromUserId),
+
         toUserId: Number(req.body.toUserId),
-        amount: Number(req.body.amount)
+
+        amount: Number(req.body.amount),
       },
+
       include: {
         expenseSplit: {
           include: {
-            expense: true
-          }
+            expense: true,
+          },
         },
+
         fromUser: {
           select: {
             id: true,
             name: true,
-            email: true
-          }
+            email: true,
+          },
         },
+
         toUser: {
           select: {
             id: true,
             name: true,
-            email: true
-          }
-        }
-      }
+            email: true,
+          },
+        },
+      },
     });
 
     success(res, updatedPayment);
@@ -256,15 +341,17 @@ export async function updatePayment(req, res, next) {
 /**
  * DELETE /api/payments/:id
  *
- * Deletes the payment and reopens the associated
- * expense split.
+ * Deletes the payment and reopens
+ * the associated expense split.
  */
 export async function deletePayment(req, res, next) {
   try {
     const id = Number(req.params.id);
 
     const existing = await prisma.payment.findUnique({
-      where: { id }
+      where: {
+        id,
+      },
     });
 
     if (!existing) {
@@ -274,22 +361,25 @@ export async function deletePayment(req, res, next) {
     await prisma.$transaction(async (tx) => {
       // Delete payment
       await tx.payment.delete({
-        where: { id }
+        where: {
+          id,
+        },
       });
 
-      // Mark the associated split as unsettled again
+      // Reopen split
       await tx.expenseSplit.update({
         where: {
-          id: existing.expenseSplitId
+          id: existing.expenseSplitId,
         },
+
         data: {
-          settled: false
-        }
+          settled: false,
+        },
       });
     });
 
     success(res, {
-      message: "Payment deleted successfully."
+      message: "Payment deleted successfully.",
     });
   } catch (error) {
     next(error);
